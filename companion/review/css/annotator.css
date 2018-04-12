@@ -137,6 +137,8 @@ input {
   border: 1px solid black;
   padding: 5px 0;
   flex-direction: column;
+  overflow: scroll;
+  max-height: calc(100% - 160px);
 }
 #barbox {
   position: absolute;
@@ -163,6 +165,7 @@ input {
 }
 
 #barbox > div {
+  position: relative;
   margin: 0 5px;
   display: flex;
   flex-direction: column;
@@ -170,7 +173,7 @@ input {
   justify-content: center;
 }
 
-#barbox div:last-child {
+#barbox > div:last-child {
   margin: 0 5px;
   display: flex;
   flex-direction: row;
@@ -343,9 +346,7 @@ input {
   cursor: pointer;
 }
 
-#barbox div {
-  position: relative;
-}
+
 
 .table .entity-cell-success td { color: #3c763d; }
 
@@ -354,3 +355,29 @@ input {
 .table .entity-cell-warning td { color: #8a6d3b; }
 
 .table .entity-cell-danger td { color: #a94442; }
+
+tr.entity-row-form-title td:nth-child(2) {
+  text-align: center;
+}
+
+tr.entity-row-form-title {
+  background-color: aliceblue;
+}
+
+#editable_td_with_validator + .tooltip > .tooltip-inner {
+  background-color: blanchedalmond;
+  color: black;
+}
+
+#editable_td_with_validator + .tooltip.top > .tooltip-arrow {
+  border-top: 5px solid blanchedalmond;
+}
+
+.barbox-cell + .tooltip > .tooltip-inner {
+  background-color: blanchedalmond;
+  color: black;
+}
+
+.barbox-cell + .tooltip.bottom > .tooltip-arrow {
+  border-bottom: 5px solid blanchedalmond;
+}

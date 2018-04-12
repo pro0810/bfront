@@ -16,11 +16,9 @@ var entityTable = document.getElementById("entity-table");
 var entityHeader = document.getElementById("entity-header");
 var defaultHeader = ["Label", "Content", "Confidence"];
 var st_flag_arr = [];
-var st_flag = undefined;
 var drawAnnotation = false;
 var default_table_type = "Metadata";
 var select_label_style_arr = ["success", "warning", "default", "danger", "info"];
-var saved_tags;
 var clickedUnrecognized = [];
 var undoLimit = 10;
 var show_unrecognized_text = true;
@@ -409,21 +407,13 @@ function generate_row_table() {
     if (table_type_index == undefined) {
         return;
     }
-    for (var i in json["table_types"][table_type_index]["columns"]) {
-        var th_tag = document.createElement("th");
-        th_tag.innerHTML = json["table_types"][table_type_index]["columns"][i];
-        entityHeader.appendChild(th_tag);
-    }
-    var th_tag = document.createElement("th");
-    th_tag.style.width = "30px";
-    th_tag.innerHTML = "";
-    entityHeader.appendChild(th_tag);
+    generateTableHeader(json["table_types"][table_type_index]["columns"]);
     for (var pointerIndex in pointers) {
         // pointerIndex = activeImage;
         for (var rowIndex in pointers[pointerIndex]["rows"]) {
             var rows = pointers[pointerIndex]["rows"][rowIndex];
-            if ((rows[0]["page"] == undefined || (Number.isInteger(rows[0]["page"]) && rows[0]["page"] == activeImage) ||
-                    (Array.isArray(rows[0]["page"]) && rows[0]["page"].indexOf(activeImage) != -1)) && rows[0]["type"] == json["table_types"][table_type_index]["type"]) {
+            if ((rows[0]["page"] === undefined || (Number.isInteger(rows[0]["page"]) && rows[0]["page"] == activeImage) ||
+                    (Array.isArray(rows[0]["page"]) && rows[0]["page"].indexOf(activeImage) !== -1)) && rows[0]["type"] == json["table_types"][table_type_index]["type"]) {
                 var data = {};
                 var sorted_rows_by_column = [];
                 for (var i in json["table_types"][table_type_index]["columns"]) {
@@ -532,7 +522,8 @@ function convert_tag_row_editable(tag, rowTag, thumbnail) {
                 return;
             }
         })(tag);
-    } else {
+    }
+    else {
         var titlebox = document.createElement("input");
         titlebox.value = tag["text"] ? tag["text"] : "";
         titlebox.style.border = "1px solid";
@@ -544,13 +535,10 @@ function convert_tag_row_editable(tag, rowTag, thumbnail) {
         titlebox.onkeydown = (function(tag) {
             return function(event) {
                 if (event.keyCode === 13) {
-                    //event.preventDefault();
-                    // tag.text = titlebox.value;
-                    // clear_right_input();
+                    event.stopImmediatePropagation();
                     event.target.blur();
                     return;
                 } else if (event.keyCode === 27) {
-                    //event.preventDefault();
                     titlebox.value = tag.text;
                     event.target.blur();
                     return;
@@ -580,7 +568,6 @@ function convert_tag_row_editable(tag, rowTag, thumbnail) {
     $(rowTag).append(titlebox);
 }
 
-
 function convert_table_row_editable(annotation) {
     var rowTag = annotation["edit_tag"];
     var titlebox = document.createElement("input");
@@ -600,10 +587,12 @@ function convert_table_row_editable(annotation) {
     });
     titlebox.onkeydown = (function(annotation, left_input) {
         return function(event) {
+
             if (event.keyCode === 13) {
                 //event.preventDefault();
+                event.stopImmediatePropagation();
                 event.target.blur();
-                hideBarBox();
+
             }
             // else if (event.keyCode === 27){
             //
@@ -614,6 +603,7 @@ function convert_table_row_editable(annotation) {
         return function(event) {
             cell_blur(annotation, event, left_input);
             clear_right_input();
+            hideBarBox();
         }
     })(annotation);
     titlebox.onfocusin = (function(annotation, left_input) {
@@ -634,26 +624,8 @@ function convert_table_row_editable(annotation) {
     $(rowTag).append(titlebox);
 }
 
-function generateTable() {
-    while (entityHeader.hasChildNodes()) {
-        entityHeader.removeChild(entityHeader.firstChild);
-    }
-    while (entityTable.hasChildNodes()) {
-        entityTable.removeChild(entityTable.firstChild);
-    }
-    if ($("#instanceSelected").selectpicker("val") != default_table_type) {
-        generate_row_table();
-        return;
-    }
-    for (var i in defaultHeader) {
-        var th_tag = document.createElement("th");
-        th_tag.innerHTML = defaultHeader[i];
-        entityHeader.appendChild(th_tag);
-    }
-    var th_tag = document.createElement("th");
-    th_tag.style.width = "30px";
-    th_tag.innerHTML = "";
-    entityHeader.appendChild(th_tag);
+function generateMetadataTable() {
+    generateTableHeader();
     var labels = getLabels();
     for (var pointerIndex in pointers) {
         // pointerIndex = activeImage;
@@ -667,7 +639,7 @@ function generateTable() {
                 continue;
             }
             (function(annotation, pointerIndex, annotationIndex) {
-                var tableRow = generateTableRow(["table-annotation", parseInt(annotation["confidence"]) >= error_confidence ? "entity-cell-confident" : "entity-cell-danger"], {
+                var tableRow = generateTableRow(["table-annotation", parseFloat(annotation["confidence"]) >= error_confidence ? "entity-cell-confident" : "entity-cell-danger"], {
                     "label": annotation["label"],
                     "content": annotation["text"],
                     "confidence": annotation["confidence"] + "%"
@@ -718,7 +690,7 @@ function generateTable() {
             continue;
         }
         (function(tag, tagIndex) {
-            var tableRow = generateTableRow(["table-tag", "active", parseInt(tag["confidence"]) >= error_confidence ? "entity-cell-confident" : "entity-cell-danger"], {
+            var tableRow = generateTableRow(["table-tag", "active", parseFloat(tag["confidence"]) >= error_confidence ? "entity-cell-confident" : "entity-cell-danger"], {
                 "label": tag["label"],
                 "content": tag["text"],
                 "confidence": tag["confidence"] + "%"
@@ -768,7 +740,7 @@ function generateTable() {
             failedChecks.push(check);
             continue;
         }
-        generateTableRow(["table-check", "success", parseInt(check["confidence"]) >= error_confidence ? "entity-cell-confident" : "entity-cell-danger"], {
+        generateTableRow(["table-check", "success", parseFloat(check["confidence"]) >= error_confidence ? "entity-cell-confident" : "entity-cell-danger"], {
             "label": check["label"],
             "content": check["text"],
             "confidence": check["confidence"] + "%"
@@ -782,7 +754,7 @@ function generateTable() {
     }
     for (var checkIndex in failedChecks) {
         var check = failedChecks[checkIndex];
-        generateTableRow(["table-check", "warning", parseInt(check["confidence"]) >= error_confidence ? "entity-cell-confident" : "entity-cell-danger"], {
+        generateTableRow(["table-check", "warning", parseFloat(check["confidence"]) >= error_confidence ? "entity-cell-confident" : "entity-cell-danger"], {
             "label": check["label"],
             "content": check["text"],
             "confidence": check["confidence"] + "%"
@@ -811,6 +783,338 @@ function generateTable() {
             "content": action["text"],
             "confidence": action["confidence"] + "%"
         });
+    }
+}
+
+function generateTableHeader(header) {
+    while (entityHeader.hasChildNodes()) {
+        entityHeader.removeChild(entityHeader.firstChild);
+    }
+    while (entityTable.hasChildNodes()) {
+        entityTable.removeChild(entityTable.firstChild);
+    }
+    header = header ? header : defaultHeader;
+    for (var i in header) {
+        var th_tag = document.createElement("th");
+        th_tag.innerHTML = header[i];
+        entityHeader.appendChild(th_tag);
+    }
+    var th_tag = document.createElement("th");
+    th_tag.style.width = "30px";
+    th_tag.innerHTML = "";
+    entityHeader.appendChild(th_tag);
+}
+
+function searchFieldData(label) {
+    for (var i in pointers) {
+        for (var j in pointers[i]['annotations']) {
+            if (label === pointers[i]['annotations'][j]['label']) {
+                return pointers[i]['annotations'][j];
+            }
+        }
+    }
+}
+
+function createManualAnnotationFromForm(label, text) {
+    var annotation = createManualAnnotation(0, 0, 0, 0, label);
+    for (var i in json['tags']) {
+        if (json['tags'][i]['label'] === label) {
+            annotation['text'] = json['tags'][i]['text'];
+            annotation['confidence'] = json['tags'][i]['confidence'];
+            annotation['error'] = annotation['confidence'] >= error_confidence;
+            return annotation;
+        }
+    }
+    annotation['text'] = text;
+    annotation['confidence'] = 0;
+    annotation['error'] = annotation['confidence'] >= error_confidence;
+    return annotation;
+}
+
+function insertSelectToFormField(tdTag, annotation, options_arr) {
+    if (!(options_arr && Array.isArray(options_arr) && options_arr.length)) {
+        return;
+    }
+    var titlebox = document.createElement("select");
+    // titlebox.value = annotation["text"] ? annotation["text"] : "";
+    titlebox.style.border = "1px solid";
+    titlebox.style.borderRadius = "3px";
+    titlebox.style.height = "33px";
+    titlebox.style.width = "100%";
+    titlebox.style["margin"] = "0px";
+    titlebox.id = "editable_td";
+
+    // options_arr.splice(0, 0, "unknown");
+    for (var i in options_arr) {
+        var select_option = document.createElement("option");
+        select_option.value = options_arr[i];
+        select_option.innerHTML = options_arr[i];
+        titlebox.appendChild(select_option);
+        if (select_option.value === annotation["text"]) {
+            titlebox.value = annotation["text"];
+        }
+    }
+    var left_input = document.getElementById(annotation["label"].replace(/[ \.,]/g, "_"));
+    titlebox.onchange = (function(annotation, left_input) {
+        return function(event) {
+            //event.preventDefault();
+            event.stopImmediatePropagation();
+            annotation["text"] = event.target.value;
+            if (left_input) {
+                $(left_input).val(this.value);
+            }
+            clear_right_input();
+            cell_blur(annotation, event, left_input);
+            hideBarBox();
+            return;
+        }
+    })(annotation, left_input);
+    titlebox.onblur = (function(annotation) {
+        return function(event) {
+            //event.preventDefault();
+            event.stopImmediatePropagation();
+            // annotation["text"] = event.target.value;
+            clear_right_input();
+            cell_blur(annotation, event, left_input);
+            hideBarBox();
+            return;
+        }
+    })(annotation);
+    $(titlebox).click(function() {
+        event.stopPropagation();
+    });
+    $(tdTag).empty();
+    $(tdTag).append(titlebox);
+}
+
+function getTooltip(validType) {
+    var tooltip;
+    if (validType === 'int') {
+        tooltip = 'Valid Format: Integer';
+    } else if (validType === 'number') {
+        tooltip = 'Valid Format: Float';
+    } else if (validType === 'date') {
+        tooltip = 'Valid Format: Date'
+    }
+    return tooltip;
+}
+
+function validateFormFieldType(validType, text) {
+    var checkResult;
+    if (validType === 'int') {
+        checkResult = parseInt(text) == text;
+    } else if (validType === 'number') {
+        checkResult = parseFloat(text) == text;
+    } else if (validType === 'date') {
+        checkResult = text.match(/(\d{2}){1}(\/\d{2})?(\/\d{4})?/);
+    } else {
+        return true;
+    }
+    return checkResult;
+}
+
+function insertInputToFormField(tdTag, annotation, validType) {
+    var titlebox = document.createElement("input");
+    var tooltip = getTooltip(validType);
+
+    titlebox.setAttribute('title', tooltip);
+    titlebox.value = annotation["text"] ? annotation["text"] : "";
+    titlebox.style.border = "1px solid";
+    titlebox.style.borderRadius = "3px";
+    titlebox.style.height = "21px";
+    titlebox.style.width = "100%";
+    titlebox.style["margin"] = "0px";
+    titlebox.id = "editable_td_with_validator";
+    var left_input = document.getElementById(annotation["label"].replace(/[ \.,]/g, "_"));
+    if (left_input) {
+        $(titlebox).on("input", function() {
+            $(left_input).val(this.value);
+        });
+    }
+    titlebox.onkeydown = (function(annotation) {
+        return function(event) {
+            if (event.keyCode === keyCodes.ENTER) {
+                event.stopImmediatePropagation();
+                event.target.blur();
+            } else if (event.keyCode === 27) {
+                titlebox.value = annotation.text;
+                event.target.blur();
+            }
+        }
+    })(annotation);
+    titlebox.onblur = (function(annotation, titlebox) {
+        return function(event) {
+            // event.stopImmediatePropagation();
+
+            if (cell_blur(annotation, event, left_input)) {
+                event.target.focus();
+                return;
+            }
+            annotation["text"] = event.target.value;
+            hideBarBox();
+            clear_right_input();
+            return;
+        }
+    })(annotation, titlebox);
+    $(titlebox).click(function() {
+        event.stopPropagation();
+    });
+    $(tdTag).empty();
+    $(tdTag).append(titlebox);
+    if (tooltip) {
+        $(titlebox).tooltip();
+    }
+}
+
+function get_models() {
+    return ['Series-1', 'Series-2'];
+}
+
+function get_franchise() {
+    return ['Franchise-1', 'Franchise-2'];
+}
+
+function convertFormFieldToEditable(tdTag, annotation, field) {
+    if (field['type'] === 'option') {
+        var optionArr;
+        if (field['options_callback']) {
+            // var funcName = field['options_callback'].substring(0, field['options_callback'].indexOf('('));
+            // var funcParams = field['options_callback'].substring(field['options_callback'].indexOf('(') + 1, field['options_callback'].indexOf(')'));
+            // funcParams = funcParams === '' ? [] : funcParams.split(',');
+            // window[funcName].apply(null, funcParams);
+            if (field['options_callback'] === 'get_models(merk, type_brandstof, model)') {
+                optionArr = get_models();
+            } else if (field['options_callback'] === 'get_franchise(cataloguswaarde)'){
+                optionArr = get_franchise();
+            }
+        }
+        else {
+            optionArr = json["tag_types"][annotation["label"]];
+        }
+        insertSelectToFormField(tdTag, annotation, optionArr);
+    } else {
+        insertInputToFormField(tdTag, annotation, field['type']);
+    }
+}
+
+function manipulateFormTableRow(rowTag, field, annotation) {
+    var editableTag = rowTag.childNodes[1];
+    if (annotation) {
+        annotation["edit_tag"] = editableTag;
+    }
+    editableTag.onclick = function(event) {
+        event.stopImmediatePropagation();
+        scroll_to_table_row(event.target);
+        if (annotation['shapes'] && annotation['shapes'][0]['geometry'] && annotation['shapes'][0]['geometry']['width']) {
+            drawBarBox(annotation);
+        } else {
+            hideBarBox();
+        }
+        convertFormFieldToEditable(annotation['edit_tag'], annotation, field);
+    };
+    rowTag.onclick = function(event) {
+        event.stopImmediatePropagation();
+        scroll_to_table_row(event.target);
+        if (annotation['shapes'] && annotation['shapes'][0]['geometry'] && annotation['shapes'][0]['geometry']['width']) {
+            drawBarBox(annotation);
+        } else {
+            hideBarBox();
+        }
+    };
+}
+
+function checkVisible(field, fields) {
+    if (field['visible'] === undefined && field['visible_if']) {
+        for (var i in fields) {
+            if (fields[i]['label'] === field['visible_if']['field']) {
+                return fields[i]['value'] === json['tag_types'][fields[i]['label']][field['visible_if']['value']];
+            }
+        }
+    } else if (field['visible'] === undefined || field['visible'] === true) {
+        return true;
+    }
+}
+
+function generateFormTable() {
+    generateTableHeader();
+    var sections = json['form']['sections'];
+
+    for (var i in sections) {
+        var fields = sections[i]['fields'];
+        for (var j in fields) {
+            var annotation = searchFieldData(fields[j]['label']);
+            var fieldValue = '';
+            var fieldConfidence = 0;
+            if (annotation) {
+                fieldValue = annotation['text'];
+                fieldConfidence = annotation['confidence'] ? annotation['confidence'] : 0;
+            } else {
+                fieldValue = fields[j]['default'] ? fields[j]['default'] : '';
+                annotation = createManualAnnotationFromForm(fields[j]['label'], fieldValue);
+                fieldValue = annotation['text'];
+                pointers[activeImage]['annotations'].push(annotation);
+            }
+            annotation['fieldType'] = fields[j]['type'];
+            fields[j]['value'] = fieldValue;
+        }
+    }
+
+    for (var i in sections) {
+        var fields = sections[i]['fields'];
+        var checkShow = false;
+        for (var j in fields) {
+            if (checkVisible(fields[j], fields)) {
+                checkShow = true;
+                break;
+            }
+        }
+        if (! checkShow) {
+            continue;
+        }
+        generateTableRow(['entity-row-form-title'],
+            {
+                "label": '',
+                "content": sections[i]['title'],
+                "confidence": ''
+            }
+        );
+        for (var j in fields) {
+            var annotation = searchFieldData(fields[j]['label']);
+            var fieldValue = '';
+            var fieldConfidence = 0;
+            if (annotation) {
+                fieldValue = annotation['text'];
+                fieldConfidence = annotation['confidence'] ? annotation['confidence'] : 0;
+            } else {
+                fieldValue = fields[j]['default'] ? fields[j]['default'] : '';
+                annotation = createManualAnnotationFromForm(fields[j]['label'], fieldValue);
+                fieldValue = annotation['text'];
+                pointers[activeImage]['annotations'].push(annotation);
+            }
+            annotation['fieldType'] = fields[j]['type'];
+            if (checkVisible(fields[j], fields)) {
+                var tableRow = generateTableRow([
+                        "table-annotation",
+                        parseFloat(fieldConfidence) >= error_confidence ? "entity-cell-confident" : "entity-cell-danger"],
+                    {
+                        "label": fields[j]['label'],
+                        "content": fieldValue,
+                        "confidence": fieldConfidence + '%'
+                    }
+                );
+                manipulateFormTableRow(tableRow, fields[j], annotation);
+            }
+        }
+    }
+}
+
+function generateTable() {
+    if (json['form'] && json['form']['sections'] && json['form']['sections'] && Array.isArray(json['form']['sections']) && json['form']['sections'].length) {
+        generateFormTable();
+    } else if ($("#instanceSelected").selectpicker("val") != default_table_type) {
+        generate_row_table();
+    } else {
+        generateMetadataTable();
     }
 }
 
@@ -954,7 +1258,7 @@ var draggingAnnotation;
 var draggingBox;
 var dragStartX;
 var dragStartY;
-$("#images").on("mousemove", function(e) {
+images.on("mousemove", function(e) {
     event.preventDefault();
     event.stopImmediatePropagation();
     var rect = e.currentTarget.getBoundingClientRect(),
@@ -1008,7 +1312,7 @@ $("#images").on("mousemove", function(e) {
     }
 });
 
-$("#images").on("mousedown", function(e) {
+images.on("mousedown", function(e) {
     draggingAnnotation = undefined;
     startedDragging = false;
     e.preventDefault();
@@ -1026,7 +1330,7 @@ $("#images").on("mousedown", function(e) {
     drawAnnotation = true;
 });
 
-$("#images").on("mouseup", function(e) {
+images.on("mouseup", function(e) {
     e.preventDefault();
     e.stopImmediatePropagation();
     var rect = e.currentTarget.getBoundingClientRect(),
@@ -1153,7 +1457,7 @@ function hideBarBox() {
     }
 
     barBox.style.display = "none";
-    barBox.style = null;
+    // barBox.style = null;
     lastActiveField = {};
     clearAnnotations();
     loadAnnotations();
@@ -1270,6 +1574,7 @@ function drawBarCell(annotation, focus) {
     var fieldInput = document.createElement("input");
     fieldInput.id = annotation["label"].replace(/[ ,\.]/g, "_");
     fieldInput.classList.add("group-field");
+    fieldInput.classList.add("barbox-cell");
     fieldInput.setAttribute("type", "text");
     fieldInput.setAttribute("name", annotation["label"]);
     fieldInput.setAttribute("placeholder", annotation["label"]);
@@ -1344,7 +1649,9 @@ function drawBarCell(annotation, focus) {
     fieldInput.onfocusout = (function(annotation) {
         return function(event) {
             console.log("blur-left-edit");
-            cell_blur(annotation, event, lastActiveField["element"]);
+            if (cell_blur(annotation, event, lastActiveField["element"])) {
+                event.target.focus();
+            }
         }
     })(annotation);
     fieldInput.onfocusin = (function(annotation) {
@@ -1411,7 +1718,13 @@ function drawBarCell(annotation, focus) {
         }
     });
     barBox.appendChild(fieldDiv);
-
+    if (annotation['fieldType']) {
+        var tooltip = getTooltip(annotation['fieldType']);
+        if (tooltip) {
+            // fieldInput.setAttribute('title', tooltip);
+            $(fieldInput).tooltip({title: tooltip, placement: "bottom"});
+        }
+    }
     if (annotation["activateRow"]) {
         annotation.activateRow();
     }
@@ -2098,6 +2411,9 @@ function drawBarBox(annotation, noRedraw) {
 }
 
 function cell_blur(annotation, event, left_input) {
+    if (! validateFormFieldType(annotation['fieldType'], event.target.value)) {
+        return true;
+    }
     if (barBox.style.display === "none") return;
     if (left_input) {
         lastActiveField = {
@@ -2235,7 +2551,7 @@ function loadAnnotations() {
     var imgwrapper = images.children()[activeImage];
     document.getElementById("main-view").onclick = function(event) {
         clickedMainView();
-    }
+    };
 
     for (var annotationIndex in pointers[activeImage]["annotations"]) {
         var annotation = pointers[activeImage]["annotations"][annotationIndex];
@@ -2274,8 +2590,6 @@ function loadAnnotations() {
     }
 }
 
-
-
 function loadThumbnails() {
     var imgThumb = document.createElement("div");
     imgThumb.classList.add("active-image");
@@ -2309,22 +2623,7 @@ function loadThumbnails() {
 }
 
 function generate_thumbnail_table() {
-    while (entityHeader.hasChildNodes()) {
-        entityHeader.removeChild(entityHeader.firstChild);
-    }
-    while (entityTable.hasChildNodes()) {
-        entityTable.removeChild(entityTable.firstChild);
-    }
-    for (var i in defaultHeader) {
-        var th_tag = document.createElement("th");
-
-        th_tag.innerHTML = defaultHeader[i];
-        entityHeader.appendChild(th_tag);
-    }
-    var th_tag = document.createElement("th");
-    th_tag.style.width = "30px";
-    th_tag.innerHTML = "";
-    entityHeader.appendChild(th_tag);
+    generateTableHeader();
     for (var pictureIndex in json["pictures"]) {
         for (var tagIndex in json["tags"]) {
             if (parseInt(pictureIndex) + 1 != json["tags"][tagIndex]["label"]) {
@@ -2332,7 +2631,7 @@ function generate_thumbnail_table() {
             }
             var tag = json["tags"][tagIndex];
             (function(tag, tagIndex) {
-                var tableRow = generateTableRow(["table-tag", "active", parseInt(tag["confidence"]) >= error_confidence ? "entity-cell-confident" : "entity-cell-danger"], {
+                var tableRow = generateTableRow(["table-tag", "active", parseFloat(tag["confidence"]) >= error_confidence ? "entity-cell-confident" : "entity-cell-danger"], {
                     "label": tag["label"],
                     "content": tag["text"],
                     "confidence": tag["confidence"] + "%"
@@ -3117,15 +3416,18 @@ function loadInputJson() {
             if (this.readyState !== 4 || this.status !== 200) {
                 return;
             }
-            if (!this.responseText || this.responseText === "") {
+            if (!this.responseText || this.responseText === "[]") {
                 pointers = [];
+                for (var i = 0; i < json["pictures"].length; i++) {
+                    pointers.push({});
+                }
             } else {
                 try {
                     saved_json = JSON.parse(this.responseText);
                     if (saved_json["pointers"]){
                         pointers = saved_json["pointers"];
                     } else if (saved_json != {}){
-                        pointers  = saved_json;
+                        pointers = saved_json;
                     }
                     if (saved_json["tags"]){
                         json["tags"] = saved_json["tags"];
@@ -3134,9 +3436,9 @@ function loadInputJson() {
                     console.error("Error loading save!")
                 }
             }
-            for (var i = 0; i < json["pictures"].length; i++) {
-                pointers.push({});
-            }
+
+
+
             ignoreLines.length = pointers.length;
             for (var pictureIndex in json["pictures"]) {
                 var reverseFile = json["pictures"][pictureIndex] + ".reverse.json";
@@ -3206,9 +3508,9 @@ function findGetParameter(parameterName) {
 }
 
 $(document).on("ready", function() {
-    var tabletype = findGetParameter("tabletype");
-    if (tabletype) {
-        $("#instanceSelected").val(tabletype);
+    var tableType = findGetParameter("tabletype");
+    if (tableType) {
+        $("#instanceSelected").val(tableType);
     }
     var instance = findGetParameter("instance");
     if (instance) {
