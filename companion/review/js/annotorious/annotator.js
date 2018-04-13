@@ -1,6 +1,5 @@
 var error_confidence = 70;
 var extra_space = 0.0005;
-
 var activeImage = 0;
 var showJson = false;
 var finalReverses = [];
@@ -219,7 +218,6 @@ function toggle_table() {
     rightToggle = !rightToggle;
 }
 
-
 $("#annotator-toggle-right").click(toggle_table);
 $("#annotator-toggle-original").click(toggle_original);
 
@@ -372,7 +370,7 @@ function generateTableRowBlankTag(deleteCallback) {
     return row;
 }
 
-function generateTableRow(classList, data, deleteCallback) {
+function createTableRow(classList, data, deleteCallback) {
     var row = document.createElement("tr");
     for (var classIndex in classList) {
         row.classList.add(classList[classIndex].replace(/ /g, "_"));
@@ -402,7 +400,7 @@ function get_table_type_index(table_type) {
     }
 }
 
-function generate_row_table() {
+function generateRowTable() {
     var table_type_index = get_table_type_index($("#instanceSelected").selectpicker("val"));
     if (table_type_index == undefined) {
         return;
@@ -412,8 +410,7 @@ function generate_row_table() {
         // pointerIndex = activeImage;
         for (var rowIndex in pointers[pointerIndex]["rows"]) {
             var rows = pointers[pointerIndex]["rows"][rowIndex];
-            if ((rows[0]["page"] === undefined || (Number.isInteger(rows[0]["page"]) && rows[0]["page"] == activeImage) ||
-                    (Array.isArray(rows[0]["page"]) && rows[0]["page"].indexOf(activeImage) !== -1)) && rows[0]["type"] == json["table_types"][table_type_index]["type"]) {
+            if ((rows[0]["page"] === undefined || (Number.isInteger(rows[0]["page"]) && rows[0]["page"] == activeImage) || (Array.isArray(rows[0]["page"]) && rows[0]["page"].indexOf(activeImage) !== -1)) && rows[0]["type"] == json["table_types"][table_type_index]["type"]) {
                 var data = {};
                 var sorted_rows_by_column = [];
                 for (var i in json["table_types"][table_type_index]["columns"]) {
@@ -435,7 +432,7 @@ function generate_row_table() {
                     continue;
                 }
                 (function(rows, pointerIndex, rowIndex) {
-                    var tableRow = generateTableRow(["table-annotation", "entity-cell-confident"], data, function(event) {
+                    var tableRow = createTableRow(["table-annotation", "entity-cell-confident"], data, function(event) {
                         event.stopImmediatePropagation();
                         for (var i in rows) {
                             if (rows[i]["destroyBox"]) {
@@ -454,14 +451,8 @@ function generate_row_table() {
                             return function(event) {
                                 event.stopImmediatePropagation();
                                 drawBarBox(row);
-                                convert_table_row_editable(row);
-                                if (event.target.hasChildNodes()) {
-                                    // setTimeout(function() {
-                                    //     event.target.childNodes[0].focus();
-                                    // }, 3);
-                                }
+                                insertInputToFormField(row['edit_tag'], row);
                             }
-                            // convert_table_row_editable(annotation);
                         })(row);
                     }
                 })(rows, pointerIndex, rowIndex);
@@ -485,143 +476,12 @@ function convert_tag_row_editable(tag, rowTag, thumbnail) {
         thumbnail = false;
     }
     if ((!thumbnail && json["tag_types"] && json["tag_types"][tag["type"]] && Array.isArray(json["tag_types"][tag["type"]])) || (thumbnail && json["page_tags"])) {
-        var titlebox = document.createElement("select");
-        // titlebox.value = tag["text"] ? tag["text"] : "";
-        titlebox.style.border = "1px solid";
-        titlebox.style.borderRadius = "3px";
-        titlebox.style.height = "33px";
-        titlebox.style.width = "100%";
-        titlebox.style["margin"] = "0px";
-        titlebox.id = "editable_td";
         var options_arr = thumbnail ? Object.assign([], json["page_tags"]) : Object.assign([], json["tag_types"][tag["type"]]);
-        // options_arr.splice(0, 0, "unknown");
-        for (var i in options_arr) {
-            var select_option = document.createElement("option");
-            select_option.value = options_arr[i];
-            select_option.innerHTML = options_arr[i];
-            titlebox.appendChild(select_option);
-            if (select_option.value == tag["text"]) {
-                titlebox.value = tag["text"];
-            }
-        }
-        titlebox.onchange = (function(tag) {
-            return function(event) {
-                //event.preventDefault();
-                event.stopImmediatePropagation();
-                tag["text"] = event.target.value;
-                clear_right_input();
-                return;
-            }
-        })(tag);
-        titlebox.onblur = (function(tag) {
-            return function(event) {
-                //event.preventDefault();
-                event.stopImmediatePropagation();
-                // tag["text"] = event.target.value;
-                clear_right_input();
-                return;
-            }
-        })(tag);
+        insertSelectToFormField(rowTag, tag, options_arr);
     }
     else {
-        var titlebox = document.createElement("input");
-        titlebox.value = tag["text"] ? tag["text"] : "";
-        titlebox.style.border = "1px solid";
-        titlebox.style.borderRadius = "3px";
-        titlebox.style.height = "21px";
-        titlebox.style.width = "100%";
-        titlebox.style["margin"] = "0px";
-        titlebox.id = "editable_td";
-        titlebox.onkeydown = (function(tag) {
-            return function(event) {
-                if (event.keyCode === 13) {
-                    event.stopImmediatePropagation();
-                    event.target.blur();
-                    return;
-                } else if (event.keyCode === 27) {
-                    titlebox.value = tag.text;
-                    event.target.blur();
-                    return;
-                }
-            }
-        })(tag);
-        titlebox.onblur = (function(tag) {
-            return function(event) {
-                event.stopImmediatePropagation();
-                tag["text"] = event.target.value;
-                clear_right_input();
-                return;
-            }
-        })(tag);
-        // titlebox.onfocusin = (function(tag) {
-        //     return function(event) {
-        //
-        //     }
-        // })
-
-
+        insertInputToFormField(rowTag, tag);
     }
-    $(titlebox).click(function() {
-        event.stopPropagation();
-    });
-    $(rowTag).empty();
-    $(rowTag).append(titlebox);
-}
-
-function convert_table_row_editable(annotation) {
-    var rowTag = annotation["edit_tag"];
-    var titlebox = document.createElement("input");
-    titlebox.value = annotation ? annotation.text : "";
-    // titlebox.style.backgroundColor = "rgba(132, 188, 211, 0.33)";
-    titlebox.style.border = "1px solid";
-    // titlebox.style.borderColor = "rgb(221, 221, 221)";
-    titlebox.style.borderRadius = "3px";
-    titlebox.style.height = "21px";
-    titlebox.style.width = "100%";
-    titlebox.style["margin"] = "0px";
-    titlebox.id = "editable_td";
-    // var left_input = $("input.group-field#" + annotation["label"].replace(/[ \.,]/g, "_"));
-    var left_input = document.getElementById(annotation["label"].replace(/[ \.,]/g, "_"));
-    $(titlebox).on("input", function() {
-        $(left_input).val(this.value);
-    });
-    titlebox.onkeydown = (function(annotation, left_input) {
-        return function(event) {
-
-            if (event.keyCode === 13) {
-                //event.preventDefault();
-                event.stopImmediatePropagation();
-                event.target.blur();
-
-            }
-            // else if (event.keyCode === 27){
-            //
-            // }
-        }
-    })(annotation, left_input);
-    titlebox.onblur = (function(annotation) {
-        return function(event) {
-            cell_blur(annotation, event, left_input);
-            clear_right_input();
-            hideBarBox();
-        }
-    })(annotation);
-    titlebox.onfocusin = (function(annotation, left_input) {
-        return function(event) {
-            lastActiveField = {
-                annotation: annotation,
-                element: left_input
-            };
-            if (annotation && !annotation["creating"] && annotation["shapes"].length) {
-                annotation.activateBox();
-            }
-        }
-    })(annotation, left_input);
-    $(titlebox).click(function() {
-        event.stopPropagation();
-    });
-    $(rowTag).empty();
-    $(rowTag).append(titlebox);
 }
 
 function generateMetadataTable() {
@@ -639,7 +499,7 @@ function generateMetadataTable() {
                 continue;
             }
             (function(annotation, pointerIndex, annotationIndex) {
-                var tableRow = generateTableRow(["table-annotation", parseFloat(annotation["confidence"]) >= error_confidence ? "entity-cell-confident" : "entity-cell-danger"], {
+                var tableRow = createTableRow(["table-annotation", parseFloat(annotation["confidence"]) >= error_confidence ? "entity-cell-confident" : "entity-cell-danger"], {
                     "label": annotation["label"],
                     "content": annotation["text"],
                     "confidence": annotation["confidence"] + "%"
@@ -657,7 +517,7 @@ function generateMetadataTable() {
                 editable_tag.onclick = function(event) {
                     event.stopImmediatePropagation();
                     drawBarBox(annotation);
-                    convert_table_row_editable(annotation);
+                    insertInputToFormField(annotation['edit_tag'], annotation);
                     if (event.target.hasChildNodes()) {
                         // setTimeout(function() {
                         //     event.target.childNodes[0].focus();
@@ -690,7 +550,7 @@ function generateMetadataTable() {
             continue;
         }
         (function(tag, tagIndex) {
-            var tableRow = generateTableRow(["table-tag", "active", parseFloat(tag["confidence"]) >= error_confidence ? "entity-cell-confident" : "entity-cell-danger"], {
+            var tableRow = createTableRow(["table-tag", "active", parseFloat(tag["confidence"]) >= error_confidence ? "entity-cell-confident" : "entity-cell-danger"], {
                 "label": tag["label"],
                 "content": tag["text"],
                 "confidence": tag["confidence"] + "%"
@@ -719,7 +579,6 @@ function generateMetadataTable() {
             return label["label"] === tag["label"]
         }), 1);
     }
-
     if (json["tags"]) {
         (function() {
             var tagCount = json["tags"].length;
@@ -729,7 +588,6 @@ function generateMetadataTable() {
             });
         })();
     }
-
     var failedChecks = [];
     for (var checkIndex in json["checks"]) {
         var check = json["checks"][checkIndex];
@@ -740,7 +598,7 @@ function generateMetadataTable() {
             failedChecks.push(check);
             continue;
         }
-        generateTableRow(["table-check", "success", parseFloat(check["confidence"]) >= error_confidence ? "entity-cell-confident" : "entity-cell-danger"], {
+        createTableRow(["table-check", "success", parseFloat(check["confidence"]) >= error_confidence ? "entity-cell-confident" : "entity-cell-danger"], {
             "label": check["label"],
             "content": check["text"],
             "confidence": check["confidence"] + "%"
@@ -754,7 +612,7 @@ function generateMetadataTable() {
     }
     for (var checkIndex in failedChecks) {
         var check = failedChecks[checkIndex];
-        generateTableRow(["table-check", "warning", parseFloat(check["confidence"]) >= error_confidence ? "entity-cell-confident" : "entity-cell-danger"], {
+        createTableRow(["table-check", "warning", parseFloat(check["confidence"]) >= error_confidence ? "entity-cell-confident" : "entity-cell-danger"], {
             "label": check["label"],
             "content": check["text"],
             "confidence": check["confidence"] + "%"
@@ -767,7 +625,7 @@ function generateMetadataTable() {
         }), 1);
     }
     labels.forEach(function(label) {
-        generateTableRow(["entity-" + label["label"].replace(/[ ,\.]/g, "_"), "danger"], {
+        createTableRow(["entity-" + label["label"].replace(/[ ,\.]/g, "_"), "danger"], {
             "label": label["label"],
             "content": "Not found",
             "confidence": ""
@@ -778,7 +636,7 @@ function generateMetadataTable() {
         if (!action) {
             continue;
         }
-        generateTableRow(["table-action", "info"], {
+        createTableRow(["table-action", "info"], {
             "label": "actions",
             "content": action["text"],
             "confidence": action["confidence"] + "%"
@@ -854,7 +712,10 @@ function insertSelectToFormField(tdTag, annotation, options_arr) {
             titlebox.value = annotation["text"];
         }
     }
-    var left_input = document.getElementById(annotation["label"].replace(/[ \.,]/g, "_"));
+    var left_input;
+    if(annotation && annotation['label'] && typeof annotation['label'] === 'string') {
+        left_input = document.getElementById(annotation["label"].replace(/[ \.,]/g, "_"));
+    }
     titlebox.onchange = (function(annotation, left_input) {
         return function(event) {
             //event.preventDefault();
@@ -906,7 +767,7 @@ function validateFormFieldType(validType, text) {
     } else if (validType === 'number') {
         checkResult = parseFloat(text) == text;
     } else if (validType === 'date') {
-        checkResult = text.match(/(\d{2}){1}(\/\d{2})?(\/\d{4})?/);
+        checkResult = text.match(/^(\d{2}){1}(\/\d{2})?(\/\d{4})?$/);
     } else {
         return true;
     }
@@ -942,7 +803,7 @@ function insertInputToFormField(tdTag, annotation, validType) {
             }
         }
     })(annotation);
-    titlebox.onblur = (function(annotation, titlebox) {
+    titlebox.onblur = (function(annotation) {
         return function(event) {
             // event.stopImmediatePropagation();
 
@@ -955,12 +816,30 @@ function insertInputToFormField(tdTag, annotation, validType) {
             clear_right_input();
             return;
         }
-    })(annotation, titlebox);
+    })(annotation);
+    titlebox.onfocusin = (function(annotation, left_input) {
+        return function(event) {
+            if (left_input) {
+                lastActiveField = {
+                    annotation: annotation,
+                    element: left_input
+                };
+            }
+            if (annotation && !annotation["creating"] && annotation["shapes"] && annotation["shapes"].length) {
+                annotation.activateBox();
+            }
+        }
+    })(annotation, left_input);
+
     $(titlebox).click(function() {
         event.stopPropagation();
     });
     $(tdTag).empty();
     $(tdTag).append(titlebox);
+    if (!left_input) {
+        titlebox.focus();
+    }
+
     if (tooltip) {
         $(titlebox).tooltip();
     }
@@ -1071,7 +950,7 @@ function generateFormTable() {
         if (! checkShow) {
             continue;
         }
-        generateTableRow(['entity-row-form-title'],
+        createTableRow(['entity-row-form-title'],
             {
                 "label": '',
                 "content": sections[i]['title'],
@@ -1093,7 +972,7 @@ function generateFormTable() {
             }
             annotation['fieldType'] = fields[j]['type'];
             if (checkVisible(fields[j], fields)) {
-                var tableRow = generateTableRow([
+                var tableRow = createTableRow([
                         "table-annotation",
                         parseFloat(fieldConfidence) >= error_confidence ? "entity-cell-confident" : "entity-cell-danger"],
                     {
@@ -1112,7 +991,7 @@ function generateTable() {
     if (json['form'] && json['form']['sections'] && json['form']['sections'] && Array.isArray(json['form']['sections']) && json['form']['sections'].length) {
         generateFormTable();
     } else if ($("#instanceSelected").selectpicker("val") != default_table_type) {
-        generate_row_table();
+        generateRowTable();
     } else {
         generateMetadataTable();
     }
@@ -1464,6 +1343,9 @@ function hideBarBox() {
 }
 
 function clearAnnotations() {
+    if (activeImage === -1) {
+        return;
+    }
     firstRecognized = true;
     firstNotRecognized = true;
     firstError = true;
@@ -2314,7 +2196,7 @@ function drawBarBox(annotation, noRedraw) {
     } else {
         drawBarCell(annotation, true);
     }
-    // convert_table_row_editable(annotation);
+
     var trashDiv = document.createElement("div");
     var trashIconHolder = document.createElement("a");
     trashIconHolder.classList.add("button");
@@ -2548,6 +2430,9 @@ function clickedMainView() {
 
 
 function loadAnnotations() {
+    if (activeImage === -1) {
+        return;
+    }
     var imgwrapper = images.children()[activeImage];
     document.getElementById("main-view").onclick = function(event) {
         clickedMainView();
@@ -2613,6 +2498,7 @@ function loadThumbnails() {
         imgContainer.onclick = (function(pictureIndex) {
             return function(event) {
                 event.stopImmediatePropagation();
+                clear_right_input();
                 switchActiveImage(parseInt(pictureIndex));
             }
         })(pictureIndex);
@@ -2631,7 +2517,7 @@ function generate_thumbnail_table() {
             }
             var tag = json["tags"][tagIndex];
             (function(tag, tagIndex) {
-                var tableRow = generateTableRow(["table-tag", "active", parseFloat(tag["confidence"]) >= error_confidence ? "entity-cell-confident" : "entity-cell-danger"], {
+                var tableRow = createTableRow(["table-tag", "active", parseFloat(tag["confidence"]) >= error_confidence ? "entity-cell-confident" : "entity-cell-danger"], {
                     "label": tag["label"],
                     "content": tag["text"],
                     "confidence": tag["confidence"] + "%"
