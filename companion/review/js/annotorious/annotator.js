@@ -230,7 +230,7 @@ function toggle_original() {
     hideChoiceBox();
     if (originalToggle) {
         pointers[activeImage] = originalPointers[activeImage]?originalPointers[activeImage]:[];
-        if (saved_json["tags"]){
+        if (saved_json && saved_json["tags"]){
             json["tags"] = saved_json["tags"];
         }
     } else {
