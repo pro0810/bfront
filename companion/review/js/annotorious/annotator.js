@@ -260,11 +260,20 @@ function getLabels() {
         for (var i in json["labels"][activeImage]) {
             var label = json["labels"][activeImage][i];
             if (label instanceof String) {
-                labels.push({
-                    "mandatory": true,
-                    "multiple": false,
-                    "label": label
-                });
+                if (json['form']) {
+                    labels.push({
+                        "mandatory": true,
+                        "multiple": true,
+                        "label": label
+                    });
+                } else {
+                    labels.push({
+                        "mandatory": true,
+                        "multiple": false,
+                        "label": label
+                    });
+                }
+
             } else if (label instanceof Object && label["label"]) {
                 labels.push(label);
             }
@@ -274,11 +283,19 @@ function getLabels() {
         for (var i in json["labels"][activeImage]) {
             var label = json["labels"][activeImage][i];
             if (label instanceof String) {
-                labels.add({
-                    "mandatory": true,
-                    "multiple": false,
-                    "label": label
-                });
+                if (json['form']) {
+                    labels.push({
+                        "mandatory": true,
+                        "multiple": true,
+                        "label": label
+                    });
+                } else {
+                    labels.push({
+                        "mandatory": true,
+                        "multiple": false,
+                        "label": label
+                    });
+                }
             } else if (label instanceof Object && label["label"]) {
                 labels.add(label);
             }
@@ -290,11 +307,19 @@ function getLabels() {
                     labels.add(json["labels"][labelIndex]);
                 }
             } else if (typeof json["labels"][labelIndex] === "string") {
-                labels.add({
-                    "mandatory": true,
-                    "multiple": false,
-                    "label": json["labels"][labelIndex]
-                });
+                if (json['form']) {
+                    labels.add({
+                        "mandatory": true,
+                        "multiple": true,
+                        "label": json["labels"][labelIndex]
+                    });
+                } else {
+                    labels.add({
+                        "mandatory": true,
+                        "multiple": false,
+                        "label": json["labels"][labelIndex]
+                    });
+                }
             }
         }
     }
@@ -845,35 +870,14 @@ function insertInputToFormField(tdTag, annotation, validType) {
     }
 }
 
-function get_models() {
+function get_models(merk, type, vermogen) {
+    console.log(merk + ' ' + type + ' ' + vermogen);
     return ['Series-1', 'Series-2'];
 }
 
-function get_franchise() {
+function get_franchise(catalog) {
+    console.log(catalog);
     return ['Franchise-1', 'Franchise-2'];
-}
-
-function convertFormFieldToEditable(tdTag, annotation, field) {
-    if (field['type'] === 'option') {
-        var optionArr;
-        if (field['options_callback']) {
-            // var funcName = field['options_callback'].substring(0, field['options_callback'].indexOf('('));
-            // var funcParams = field['options_callback'].substring(field['options_callback'].indexOf('(') + 1, field['options_callback'].indexOf(')'));
-            // funcParams = funcParams === '' ? [] : funcParams.split(',');
-            // window[funcName].apply(null, funcParams);
-            if (field['options_callback'] === 'get_models(merk, type_brandstof, model)') {
-                optionArr = get_models();
-            } else if (field['options_callback'] === 'get_franchise(cataloguswaarde)'){
-                optionArr = get_franchise();
-            }
-        }
-        else {
-            optionArr = json["tag_types"][annotation["label"]];
-        }
-        insertSelectToFormField(tdTag, annotation, optionArr);
-    } else {
-        insertInputToFormField(tdTag, annotation, field['type']);
-    }
 }
 
 function manipulateFormTableRow(rowTag, field, annotation) {
@@ -884,21 +888,27 @@ function manipulateFormTableRow(rowTag, field, annotation) {
     editableTag.onclick = function(event) {
         event.stopImmediatePropagation();
         scroll_to_table_row(event.target);
-        if (annotation['shapes'] && annotation['shapes'][0]['geometry'] && annotation['shapes'][0]['geometry']['width']) {
-            drawBarBox(annotation);
+        // if (annotation['shapes'] && annotation['shapes'][0]['geometry'] && annotation['shapes'][0]['geometry']['width']) {
+        //     drawBarBox(annotation);
+        // } else {
+        //     hideBarBox();
+        // }
+        drawBarBox(annotation);
+        if (field['type'] === 'option') {
+            insertSelectToFormField(annotation['edit_tag'], annotation, field['options']);
         } else {
-            hideBarBox();
+            insertInputToFormField(annotation['edit_tag'], annotation, field['type']);
         }
-        convertFormFieldToEditable(annotation['edit_tag'], annotation, field);
     };
     rowTag.onclick = function(event) {
         event.stopImmediatePropagation();
         scroll_to_table_row(event.target);
-        if (annotation['shapes'] && annotation['shapes'][0]['geometry'] && annotation['shapes'][0]['geometry']['width']) {
-            drawBarBox(annotation);
-        } else {
-            hideBarBox();
-        }
+        // if (annotation['shapes'] && annotation['shapes'][0]['geometry'] && annotation['shapes'][0]['geometry']['width']) {
+        //     drawBarBox(annotation);
+        // } else {
+        //     hideBarBox();
+        // }
+        drawBarBox(annotation);
     };
 }
 
@@ -914,10 +924,8 @@ function checkVisible(field, fields) {
     }
 }
 
-function generateFormTable() {
-    generateTableHeader();
+function initializeForms() {
     var sections = json['form']['sections'];
-
     for (var i in sections) {
         var fields = sections[i]['fields'];
         for (var j in fields) {
@@ -928,16 +936,74 @@ function generateFormTable() {
                 fieldValue = annotation['text'];
                 fieldConfidence = annotation['confidence'] ? annotation['confidence'] : 0;
             } else {
+                annotation = createManualAnnotation(0, 0, 0, 0, fields[j]['label']);
+                annotation['confidence'] = 0;
                 fieldValue = fields[j]['default'] ? fields[j]['default'] : '';
-                annotation = createManualAnnotationFromForm(fields[j]['label'], fieldValue);
-                fieldValue = annotation['text'];
+                annotation['text'] = fieldValue;
+                for (var k in json['tags']) {
+                    if (json['tags'][k]['label'] === fields[j]['label']) {
+                        annotation['text'] = json['tags'][k]['text'];
+                        fieldValue = annotation['text'];
+                        annotation['confidence'] = json['tags'][k]['confidence'];
+                        annotation['error'] = annotation['confidence'] >= error_confidence;
+                        break;
+                    }
+                }
                 pointers[activeImage]['annotations'].push(annotation);
             }
             annotation['fieldType'] = fields[j]['type'];
             fields[j]['value'] = fieldValue;
         }
     }
+}
 
+function getValueFromLabel(label) {
+    for (var j in json['form']['sections']) {
+        for (var k in json['form']['sections'][j]['fields']) {
+            var field = json['form']['sections'][j]['fields'][k];
+            if (field['label'] === label.trim()) {
+                return field['value'];
+            }
+        }
+    }
+}
+
+function getValuesFromFuncParams(paramStr) {
+    var valueArr = [];
+    if (paramStr) {
+        var paramArr = paramStr.split(',');
+        for (var i in paramArr) {
+            valueArr.push(getValueFromLabel(paramArr[i]))
+        }
+    }
+    return valueArr;
+}
+
+function updateOptionsFromTagOrCallback() {
+    var sections = json['form']['sections'];
+    for (var i in sections) {
+        var fields = sections[i]['fields'];
+        for (var j in fields) {
+            var field = fields[j];
+            if (field['options_callback']) {
+                var funcName = field['options_callback'].substring(0, field['options_callback'].indexOf('('));
+                var funcParams = field['options_callback'].substring(field['options_callback'].indexOf('(') + 1, field['options_callback'].indexOf(')'));
+                field['options'] = window[funcName].apply(null, getValuesFromFuncParams(funcParams));
+            } else {
+                field['options'] = json["tag_types"][field['label']];
+            }
+            if (! field['value'] && field['options'] && field['options'][0]) {
+                field['value'] = field['options'][0];
+            }
+        }
+    }
+}
+
+function generateFormTable() {
+    generateTableHeader();
+    initializeForms();
+    updateOptionsFromTagOrCallback();
+    var sections = json['form']['sections'];
     for (var i in sections) {
         var fields = sections[i]['fields'];
         var checkShow = false;
@@ -959,26 +1025,15 @@ function generateFormTable() {
         );
         for (var j in fields) {
             var annotation = searchFieldData(fields[j]['label']);
-            var fieldValue = '';
-            var fieldConfidence = 0;
-            if (annotation) {
-                fieldValue = annotation['text'];
-                fieldConfidence = annotation['confidence'] ? annotation['confidence'] : 0;
-            } else {
-                fieldValue = fields[j]['default'] ? fields[j]['default'] : '';
-                annotation = createManualAnnotationFromForm(fields[j]['label'], fieldValue);
-                fieldValue = annotation['text'];
-                pointers[activeImage]['annotations'].push(annotation);
-            }
-            annotation['fieldType'] = fields[j]['type'];
+            annotation['text'] = fields[j]['value'];
             if (checkVisible(fields[j], fields)) {
                 var tableRow = createTableRow([
                         "table-annotation",
-                        parseFloat(fieldConfidence) >= error_confidence ? "entity-cell-confident" : "entity-cell-danger"],
+                        annotation['confidence'] >= error_confidence ? "entity-cell-confident" : "entity-cell-danger"],
                     {
                         "label": fields[j]['label'],
-                        "content": fieldValue,
-                        "confidence": fieldConfidence + '%'
+                        "content": fields[j]['value'],
+                        "confidence": annotation['confidence'] + '%'
                     }
                 );
                 manipulateFormTableRow(tableRow, fields[j], annotation);
@@ -988,6 +1043,7 @@ function generateFormTable() {
 }
 
 function generateTable() {
+    console.log('generate_table');
     if (json['form'] && json['form']['sections'] && json['form']['sections'] && Array.isArray(json['form']['sections']) && json['form']['sections'].length) {
         generateFormTable();
     } else if ($("#instanceSelected").selectpicker("val") != default_table_type) {
@@ -1773,6 +1829,18 @@ $(document).on("keydown", function(event) {
     }
 })
 
+function getAnnotationFromLabel(annotation) {
+    for (var j in pointers) {
+        for (var i in pointers[j]['annotations']) {
+            if (pointers[j]['annotations'][i]['label'] === annotation['label'] && annotation !== pointers[j]['annotations'][i]) {
+                pointers[j]['annotations'].splice(i, 1);
+                return
+            }
+        }
+    }
+
+}
+
 
 function drawTypeChoiceRow (annotation, label, type, choiceNum) {
     if (type == "label") {
@@ -1798,7 +1866,6 @@ function drawTypeChoiceRow (annotation, label, type, choiceNum) {
     choiceInput.onchange = (function(annotation) {
         return function(event) {
             event.stopImmediatePropagation();
-
             if (type == "other") {
                 var otherTextInput = document.createElement("input");
                 otherTextInput.setAttribute("type", "text");
@@ -1809,14 +1876,12 @@ function drawTypeChoiceRow (annotation, label, type, choiceNum) {
                     if (event.keyCode === 13) {
                         event.preventDefault();
                         annotation["label"] = event.target.value;
-
                         var noRedraw;
                         if (annotation["unrecognized"]) {
                             updateClickedUnrecognized(annotation);
                             delete annotation["unrecognized"];
                             annotation.fixBox();
                             noRedraw = true;
-
                         }
                         hideChoiceBox(true);
                         drawBarBox(annotation, noRedraw);
@@ -1833,10 +1898,17 @@ function drawTypeChoiceRow (annotation, label, type, choiceNum) {
                     annotation.fixBox();
                     noRedraw = true;
                 }
-                if (type == "label") {
+                if (json['form']) {
+                    // pointers[activeImage]['annotations'].pop();
                     annotation["label"] = event.target.value;
-                } else if (type == "line") {
-                    update_annotation_to_row(annotation, json["table_types"].indexOf(label));
+                    getAnnotationFromLabel(annotation);
+                    // originalAnnotation = annotation;
+                } else {
+                    if (type == "label") {
+                        annotation["label"] = event.target.value;
+                    } else if (type == "line") {
+                        update_annotation_to_row(annotation, json["table_types"].indexOf(label));
+                    }
                 }
                 hideChoiceBox(true);
                 drawBarBox(annotation, noRedraw);
@@ -1959,7 +2031,6 @@ function updateClickedUnrecognized(annotation) {
 
 function drawTypeChoice(annotation) {
     // hideBarBox();
-
     hideChoiceBox();
     var choiceNum = 1;
     if (annotation["unrecognized"]) {
@@ -2412,6 +2483,7 @@ function createAnnotationBox(annotation) {
 function clickedMainView() {
     console.log("clicked-mainview");
     console.log("startedDragging=" + startedDragging);
+    clear_right_input();
     if (!startedDragging && activeImage >= 0) {
         event.stopImmediatePropagation();
         if (lastActiveField["element"]) {
