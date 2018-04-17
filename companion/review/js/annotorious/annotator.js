@@ -539,7 +539,7 @@ function generateRowTable() {
 }
 
 function clear_right_input() {
-    var right_input = document.getElementById("editable_td_with_validator");
+    var right_input = document.getElementById("editable_td");
     if (right_input) {
         var value = right_input.value;
         right_input.parentElement.textContent = value;
@@ -817,8 +817,8 @@ function insertSelectToFormField(tdTag, annotation, options_arr) {
             return;
         }
     })(annotation);
-    $(titlebox).click(function() {
-        event.stopPropagation();
+    $(titlebox).click(function(event) {
+        event.stopImmediatePropagation();
     });
     $(tdTag).empty();
     $(tdTag).append(titlebox);
@@ -861,7 +861,7 @@ function insertInputToFormField(tdTag, annotation, validType) {
     titlebox.style.height = "21px";
     titlebox.style.width = "100%";
     titlebox.style["margin"] = "0px";
-    titlebox.id = "editable_td_with_validator";
+    titlebox.id = "editable_td";
     var left_input = document.getElementById(annotation["label"].replace(/[ \.,]/g, "_"));
     if (left_input) {
         $(titlebox).on("input", function() {
@@ -924,7 +924,9 @@ function insertInputToFormField(tdTag, annotation, validType) {
 function get_models(merk, type, vermogen, field, callback) {
     console.log(merk + ' ' + type + ' ' + vermogen);
     console.log(field);
-    setTimeout(function(){callback(field, null, ['Series-1', 'Series-2'])}, 500);
+    setTimeout(function(){
+        callback(field, null, [merk, type, vermogen])
+    }, 500);
     return ['Series-1', 'Series-2'];
     var xhttp;
     if (window.XMLHttpRequest) {
@@ -1024,6 +1026,7 @@ function initializeForms() {
                         break;
                     }
                 }
+                annotation['prevtext'] = fieldValue;
                 pointers[activeImage]['annotations'].push(annotation);
             }
             annotation['fieldType'] = fields[j]['type'];
@@ -1071,7 +1074,6 @@ function checkLastOptionsCallback(checkedField) {
     return checked;
 }
 
-
 function optionsCallback(field, error, result) {
     if (result) {
         field['options'] = result;
@@ -1081,8 +1083,12 @@ function optionsCallback(field, error, result) {
         // field['options'] = [];
         // console.log(error);
     }
+
     if (! field['value'] && field['options'] && field['options'][0]) {
+        var annotation = searchFieldData(field['label']);
         field['value'] = field['options'][0];
+        annotation['text'] = field['value'];
+        annotation['prevtext'] = field['value'];
     }
     if (checkLastOptionsCallback(field)) {
         drawFormTable();
@@ -1098,7 +1104,10 @@ function updateOptionsFromTagOrCallback() {
             if (! field['options_callback']) {
                 field['options'] = json["tag_types"][field['label']];
                 if (! field['value'] && field['options'] && field['options'][0]) {
+                    var annotation = searchFieldData(fields[j]['label']);
                     field['value'] = field['options'][0];
+                    annotation['text'] = field['value'];
+                    annotation['prevtext'] = field['value'];
                 }
             }
         }
@@ -1650,7 +1659,6 @@ function drawBarCell(annotation, focus) {
                 event.stopImmediatePropagation();
                 event.target.blur();
                 hideBarBox();
-                // clear_right_input();
                 // generateTable();
                 return;
             }
@@ -1704,7 +1712,7 @@ function drawBarCell(annotation, focus) {
                     drawBarBox(newAnnotation);
                 } else if (newChecked) {
                     hideBarBox();
-                    // generateTable();
+                    generateTable();
                 }
                 return;
             }
@@ -2443,7 +2451,7 @@ function drawBarBox(annotation, noRedraw) {
             event.preventDefault();
             $(lastActiveField["element"]).blur();
             hideBarBox();
-            generateTable();
+            // generateTable();
             startedDragging = false;
             return;
         }
@@ -2478,11 +2486,10 @@ function cell_blur(annotation, event, left_input) {
             if (lastActiveField.annotation["deactivateBox"]) {
                 lastActiveField.annotation.deactivateBox();
             }
-
         }
     }
     if (annotation["text"] != annotation["prevtext"]) {
-        // generateTable();
+        generateTable();
         annotation["prevtext"] = annotation["text"];
     }
 }
@@ -2587,7 +2594,7 @@ function clickedMainView() {
             hideChoiceBox();
         }
         hideBarBox();
-        // generateTable();
+        generateTable();
     }
     startedDragging = false;
 }

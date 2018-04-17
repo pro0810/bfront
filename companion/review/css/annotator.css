@@ -364,12 +364,12 @@ tr.entity-row-form-title {
   background-color: aliceblue;
 }
 
-#editable_td_with_validator + .tooltip > .tooltip-inner {
+#editable_td + .tooltip > .tooltip-inner {
   background-color: blanchedalmond;
   color: black;
 }
 
-#editable_td_with_validator + .tooltip.top > .tooltip-arrow {
+#editable_td + .tooltip.top > .tooltip-arrow {
   border-top: 5px solid blanchedalmond;
 }
 
