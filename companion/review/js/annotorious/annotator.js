@@ -58,6 +58,57 @@ var keyCodes = {
     NUM9: 105
 };
 
+Number.isInteger = Number.isInteger || function(value) {
+    return typeof value === 'number' && isFinite(value) && Math.floor(value) === value;
+};
+
+// https://tc39.github.io/ecma262/#sec-array.prototype.findIndex
+if (!Array.prototype.findIndex) {
+    Object.defineProperty(Array.prototype, 'findIndex', {
+        value: function(predicate) {
+            // 1. Let O be ? ToObject(this value).
+            if (this == null) {
+                throw new TypeError('"this" is null or not defined');
+            }
+
+            var o = Object(this);
+
+            // 2. Let len be ? ToLength(? Get(O, "length")).
+            var len = o.length >>> 0;
+
+            // 3. If IsCallable(predicate) is false, throw a TypeError exception.
+            if (typeof predicate !== 'function') {
+                throw new TypeError('predicate must be a function');
+            }
+
+            // 4. If thisArg was supplied, let T be thisArg; else let T be undefined.
+            var thisArg = arguments[1];
+
+            // 5. Let k be 0.
+            var k = 0;
+
+            // 6. Repeat, while k < len
+            while (k < len) {
+                // a. Let Pk be ! ToString(k).
+                // b. Let kValue be ? Get(O, Pk).
+                // c. Let testResult be ToBoolean(? Call(predicate, T, « kValue, k, O »)).
+                // d. If testResult is true, return k.
+                var kValue = o[k];
+                if (predicate.call(thisArg, kValue, k, o)) {
+                    return k;
+                }
+                // e. Increase k by 1.
+                k++;
+            }
+
+            // 7. Return -1.
+            return -1;
+        },
+        configurable: true,
+        writable: true
+    });
+}
+
 function showModalPopup(title, text, submit, time) {
     if (title) {
         $("#modal-request-title").removeClass("modal-request-hidden");
@@ -488,7 +539,7 @@ function generateRowTable() {
 }
 
 function clear_right_input() {
-    var right_input = document.getElementById("editable_td");
+    var right_input = document.getElementById("editable_td_with_validator");
     if (right_input) {
         var value = right_input.value;
         right_input.parentElement.textContent = value;
@@ -870,14 +921,48 @@ function insertInputToFormField(tdTag, annotation, validType) {
     }
 }
 
-function get_models(merk, type, vermogen) {
+function get_models(merk, type, vermogen, field, callback) {
     console.log(merk + ' ' + type + ' ' + vermogen);
+    console.log(field);
+    setTimeout(function(){callback(field, null, ['Series-1', 'Series-2'])}, 500);
     return ['Series-1', 'Series-2'];
+    var xhttp;
+    if (window.XMLHttpRequest) {
+        xhttp = new XMLHttpRequest();
+    } else {
+        xhttp = new ActiveXObject("Microsoft.XMLHTTP");
+    }
+    xhttp.onreadystatechange = function() {
+        if (this.readyState !== 4 || this.status !== 200) {
+            callback(this.responseText);
+        } else {
+            callback(null, JSON.parse(this.responseText));
+        }
+    };
+    xhttp.open("GET", "/review/model/" + directory, true);
+    xhttp.send();
 }
 
-function get_franchise(catalog) {
+function get_franchise(catalog, field, callback) {
     console.log(catalog);
+    console.log(field);
+    setTimeout(function() {callback(field, null, ['Franchise-1', 'Franchise-2'])}, 300);
     return ['Franchise-1', 'Franchise-2'];
+    var xhttp;
+    if (window.XMLHttpRequest) {
+        xhttp = new XMLHttpRequest();
+    } else {
+        xhttp = new ActiveXObject("Microsoft.XMLHTTP");
+    }
+    xhttp.onreadystatechange = function() {
+        if (this.readyState !== 4 || this.status !== 200) {
+            callback(field, this.responseText);
+        } else {
+            callback(field, null, JSON.parse(this.responseText));
+        }
+    };
+    xhttp.open("GET", "/review/franchise/" + directory, true);
+    xhttp.send();
 }
 
 function manipulateFormTableRow(rowTag, field, annotation) {
@@ -888,11 +973,6 @@ function manipulateFormTableRow(rowTag, field, annotation) {
     editableTag.onclick = function(event) {
         event.stopImmediatePropagation();
         scroll_to_table_row(event.target);
-        // if (annotation['shapes'] && annotation['shapes'][0]['geometry'] && annotation['shapes'][0]['geometry']['width']) {
-        //     drawBarBox(annotation);
-        // } else {
-        //     hideBarBox();
-        // }
         drawBarBox(annotation);
         if (field['type'] === 'option') {
             insertSelectToFormField(annotation['edit_tag'], annotation, field['options']);
@@ -903,11 +983,6 @@ function manipulateFormTableRow(rowTag, field, annotation) {
     rowTag.onclick = function(event) {
         event.stopImmediatePropagation();
         scroll_to_table_row(event.target);
-        // if (annotation['shapes'] && annotation['shapes'][0]['geometry'] && annotation['shapes'][0]['geometry']['width']) {
-        //     drawBarBox(annotation);
-        // } else {
-        //     hideBarBox();
-        // }
         drawBarBox(annotation);
     };
 }
@@ -979,8 +1054,56 @@ function getValuesFromFuncParams(paramStr) {
     return valueArr;
 }
 
+function checkLastOptionsCallback(checkedField) {
+    var checked = false;
+    var sections = json['form']['sections'];
+    for (var i in sections) {
+        var fields = sections[i]['fields'];
+        for (var j in fields) {
+            var field = fields[j];
+            if (field === checkedField) {
+                checked = true;
+            } else if (field['options_callback']) {
+                checked = false;
+            }
+        }
+    }
+    return checked;
+}
+
+
+function optionsCallback(field, error, result) {
+    if (result) {
+        field['options'] = result;
+    } else {
+        showPopupModal('An error occurred', error);
+        return;
+        // field['options'] = [];
+        // console.log(error);
+    }
+    if (! field['value'] && field['options'] && field['options'][0]) {
+        field['value'] = field['options'][0];
+    }
+    if (checkLastOptionsCallback(field)) {
+        drawFormTable();
+    }
+}
+
 function updateOptionsFromTagOrCallback() {
     var sections = json['form']['sections'];
+    for (var i in sections) {
+        var fields = sections[i]['fields'];
+        for (var j in fields) {
+            var field = fields[j];
+            if (! field['options_callback']) {
+                field['options'] = json["tag_types"][field['label']];
+                if (! field['value'] && field['options'] && field['options'][0]) {
+                    field['value'] = field['options'][0];
+                }
+            }
+        }
+    }
+
     for (var i in sections) {
         var fields = sections[i]['fields'];
         for (var j in fields) {
@@ -988,21 +1111,16 @@ function updateOptionsFromTagOrCallback() {
             if (field['options_callback']) {
                 var funcName = field['options_callback'].substring(0, field['options_callback'].indexOf('('));
                 var funcParams = field['options_callback'].substring(field['options_callback'].indexOf('(') + 1, field['options_callback'].indexOf(')'));
-                field['options'] = window[funcName].apply(null, getValuesFromFuncParams(funcParams));
-            } else {
-                field['options'] = json["tag_types"][field['label']];
-            }
-            if (! field['value'] && field['options'] && field['options'][0]) {
-                field['value'] = field['options'][0];
+                var realParams = getValuesFromFuncParams(funcParams);
+                realParams.push(field);
+                realParams.push(optionsCallback);
+                window[funcName].apply(null, realParams);
             }
         }
     }
 }
 
-function generateFormTable() {
-    generateTableHeader();
-    initializeForms();
-    updateOptionsFromTagOrCallback();
+function drawFormTable() {
     var sections = json['form']['sections'];
     for (var i in sections) {
         var fields = sections[i]['fields'];
@@ -1040,6 +1158,13 @@ function generateFormTable() {
             }
         }
     }
+
+}
+
+function generateFormTable() {
+    generateTableHeader();
+    initializeForms();
+    updateOptionsFromTagOrCallback();
 }
 
 function generateTable() {
@@ -1525,7 +1650,8 @@ function drawBarCell(annotation, focus) {
                 event.stopImmediatePropagation();
                 event.target.blur();
                 hideBarBox();
-                generateTable();
+                // clear_right_input();
+                // generateTable();
                 return;
             }
             if (event.keyCode === keyCodes.DELETE && event.ctrlKey) {
@@ -1578,7 +1704,7 @@ function drawBarCell(annotation, focus) {
                     drawBarBox(newAnnotation);
                 } else if (newChecked) {
                     hideBarBox();
-                    generateTable();
+                    // generateTable();
                 }
                 return;
             }
@@ -2238,18 +2364,17 @@ function drawBarBox(annotation, noRedraw) {
         hideBarBox();
     }
     clear_right_input();
-    if (annotation["type"] != $("#instanceSelected").selectpicker("val")) {
+    if (annotation["type"] != $("#instanceSelected").selectpicker("val") && !json['form']) {
         if (annotation["type"]) {
             $("#instanceSelected").selectpicker("val", annotation["type"]);
             generateTable();
         } else {
-            $("#instanceSelected").selectpicker("val", default_table_type);
-            generateTable();
+            if ($("#instanceSelected").selectpicker("val") != default_table_type) {
+                $("#instanceSelected").selectpicker("val", default_table_type);
+                generateTable();
+            }
         }
     }
-    // while (barBox.hasChildNodes()) {
-    //     barBox.removeChild(barBox.firstChild);
-    // }
     if (activeImage !== annotation["imageIndex"]) {
         switchActiveImage(annotation["imageIndex"]);
     }
@@ -2294,40 +2419,15 @@ function drawBarBox(annotation, noRedraw) {
         return function(event) {
             event.stopImmediatePropagation();
             clickedUnrecognized = [];
-            if (pointers[activeImage]["unrecognized"][annotation["lineIndex"]] == undefined) {
+            // if (pointers[activeImage]["unrecognized"][annotation["lineIndex"]] == undefined) {
+            if (pointers[activeImage]["unrecognized"] && pointers[activeImage]["unrecognized"][annotation["lineIndex"]] == undefined) {
                 pointers[activeImage]["unrecognized"][annotation["lineIndex"]] = {};
             }
             var finalLine = pointers[activeImage]["rows"][annotation["row_to_line"]];
             if (finalLine) {
                 var lineNumber = annotation["row_to_line"];
-                // for (var finalLineIndex in finalLine) {
-                //     var curKeys = Object.keys(pointers[activeImage]["unrecognized"][lineNumber]);
-                //     var newKey;
-                //     if (curKeys.length === 0) {
-                //         newKey = 0;
-                //     } else {
-                //         newKey = Math.max.apply(null, curKeys) + 1;
-                //     }
-                //     pointers[activeImage]["unrecognized"][lineNumber][newKey] = finalLine[finalLineIndex];
-                //     delete finalLine[finalLineIndex]["row_to_line"];
-                //     delete finalLine[finalLineIndex]["label"];
-                //     finalLine[finalLineIndex]["unrecognized"] = true;
-                //     finalLine[finalLineIndex]["index"] = newKey;
-                // }
                 delete pointers[activeImage]["rows"][lineNumber];
             } else {
-                // var curKeys = Object.keys(pointers[activeImage]["unrecognized"][annotation["lineIndex"]]);
-                // var newKey;
-                // if (curKeys.length === 0) {
-                //     newKey = 0;
-                // } else {
-                //     newKey = Math.max.apply(null, curKeys) + 1;
-                // }
-                // pointers[activeImage]["unrecognized"][annotation["lineIndex"]][newKey] = annotation;
-                // delete annotation["annotationIndex"];
-                // delete annotation["label"];
-                // annotation["unrecognized"] = true;
-                // annotation["index"] = newKey;
                 pointers[annotation["imageIndex"]]["annotations"].splice(pointers[annotation["imageIndex"]]["annotations"].indexOf(annotation), 1);
             }
             pointers[activeImage]["unrecognized"] = updateUnrecognizedAnnotation();
@@ -2341,17 +2441,9 @@ function drawBarBox(annotation, noRedraw) {
         return function(event) {
             event.stopImmediatePropagation();
             event.preventDefault();
-            // cell_blur(annotation, event, lastActiveField["element"]);
-            // if (lastActiveField["annotation"]["edit_tag"].childNodes[0]){
-            //     $(lastActiveField["annotation"]["edit_tag"].childNodes[0]).blur();
-            // };
             $(lastActiveField["element"]).blur();
-
-            // setTimeout(function(){
             hideBarBox();
             generateTable();
-            // }, 10);
-
             startedDragging = false;
             return;
         }
@@ -2495,7 +2587,7 @@ function clickedMainView() {
             hideChoiceBox();
         }
         hideBarBox();
-        generateTable();
+        // generateTable();
     }
     startedDragging = false;
 }
@@ -2532,7 +2624,8 @@ function loadAnnotations() {
             }
         }
     }
-    generateTable();
+    clear_right_input();
+    // generateTable();
     if (show_unrecognized_text) {
         for (var rowIndex in pointers[activeImage]["unrecognized"]) {
             var row = pointers[activeImage]["unrecognized"][rowIndex];
@@ -2706,6 +2799,9 @@ function switchActiveImage(newActive) {
             loadJson();
         } else {
             loadAnnotations();
+            if (!json['form']) {
+                generateTable();
+            }
         }
         resolveButtons();
     }
@@ -3302,7 +3398,8 @@ function set_table_types(){
             if (!(json["table_types"][i]["page"] == undefined || (Number.isInteger(json["table_types"][i]["page"]) && json["table_types"][i]["page"] == activeImage) || (Array.isArray(json["table_types"][i]["page"]) && json["table_types"][i]["page"].indexOf(activeImage) != -1)))
                 continue;
             var table_select = document.createElement("option");
-            table_select.setAttribute("data-content", `<span class="label label-${select_label_style_arr[count]}">${json["table_types"][i]["label"]}</span>`);
+            table_select.setAttribute("data-content", '<span class="label label-' + select_label_style_arr[count] + '">' + json["table_types"][i]["label"] + '</span>');
+            // table_select.setAttribute("data-content", `<span class="label label-${select_label_style_arr[count]}">${json["table_types"][i]["label"]}</span>`);
             table_select.setAttribute("value", json["table_types"][i]["type"]);
             $("#instanceSelected").append(table_select);
             count += 1;
@@ -3420,6 +3517,7 @@ function loadInputJson() {
 
 function afterFirstLoad() {
     loadAnnotations();
+    generateTable();
     resolveButtons();
     $("#choicebox").draggable({
         axis: "x",
