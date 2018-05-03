@@ -1206,7 +1206,7 @@ function getCallbackOptions() {
                         drawFormTable();
                         return [3 /*break*/, 3];
                     }
-                    return [4 /*yield*/, sync_sleep(1000)];
+                    return [4 /*yield*/, sync_sleep(100)];
                 case 2:
                     _a.sent();
                     return [3 /*break*/, 1];
