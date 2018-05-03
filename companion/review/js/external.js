@@ -1,4 +1,5 @@
 function xhttp_get(url, callback) {
+    console.log(url);
     return setTimeout(function() {callback(null, null)}, 1000);
     var xhttp;
     if (window.XMLHttpRequest) {

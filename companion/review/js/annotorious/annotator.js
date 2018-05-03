@@ -26,6 +26,7 @@ var firstLoaded;
 var saved_json;
 var originalJsonTags;
 var originalPointers = [];
+var checkedCallback;
 var keyCodes = {
     TAB: 9,
     ENTER: 13,
@@ -311,11 +312,13 @@ function toggle_original() {
     clickedUnrecognized = [];
     hideChoiceBox();
     if (originalToggle) {
+        $("#annotator-toggle-original").innerHTML = '<a href="#" class="si-facebook"><span class="ts-icon"><i class="icon-undo"></i></span><span class="ts-text">Original</span></a>';
         pointers[activeImage] = originalPointers[activeImage]?originalPointers[activeImage]:[];
         if (saved_json && saved_json["tags"]){
             json["tags"] = saved_json["tags"];
         }
     } else {
+        $("#annotator-toggle-original").innerHTML = '<a href="#" class="si-facebook"><span class="ts-icon"><i class="icon-repeat"></i></span><span class="ts-text">Saved</span></a>';
         originalPointers[activeImage] = pointers[activeImage];
         pointers[activeImage] = {};
         json["tags"] = originalJsonTags;
@@ -1120,10 +1123,6 @@ function invalidateCallbackOptions(label) {
             }
         }
     }
-
-
-
-
 }
 
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
@@ -1178,14 +1177,28 @@ function getCallbackOptions() {
                         var fields = sections[i]['fields'];
                         for (var j in fields) {
                             var field = fields[j];
-                            if (field['options_callback'] && field['options'] === undefined) {
+                            if (field['options_callback'] && field['options'] === undefined ) {
                                 finishedCallback = false;
-                                var funcName = field['options_callback'].substring(0, field['options_callback'].indexOf('('));
-                                var funcParams = field['options_callback'].substring(field['options_callback'].indexOf('(') + 1, field['options_callback'].indexOf(')'));
-                                var realParams = getValuesFromFuncParams(funcParams);
-                                realParams.push(field);
-                                realParams.push(optionsCallback);
-                                window[funcName].apply(null, realParams);
+                                console.log(checkedCallback);
+                                if(checkedCallback.indexOf(field['label']) == -1) {
+                                    var funcName = field['options_callback'].substring(0, field['options_callback'].indexOf('('));
+                                    var funcParams = field['options_callback'].substring(field['options_callback'].indexOf('(') + 1, field['options_callback'].indexOf(')'));
+                                    var realParams = getValuesFromFuncParams(funcParams);
+                                    var checkParams = true;
+                                    for (var k in realParams) {
+                                        if (! realParams[k]) {
+                                            checkParams = false;
+                                            break;
+                                        }
+                                    }
+                                    if (checkParams) {
+                                        checkedCallback.push(field['label']);
+                                        realParams.push(field);
+                                        realParams.push(optionsCallback);
+                                        window[funcName].apply(null, realParams);
+                                    }
+
+                                }
                             }
                         }
                     }
@@ -1221,22 +1234,8 @@ function updateOptionsFromTagOrCallback() {
             }
         }
     }
-
+    checkedCallback = [];
     getCallbackOptions();
-    // for (var i in [1,2,3,4,5,6,7]) {
-    //
-    //     setTimeout(function() {
-    //         if (getCallbackOptions()) {
-    //             console.log(i);
-    //             return;
-    //         }
-    //     }, 1000);
-    //         if (finishedCallback) {
-    //             break;
-    //         }
-    //
-    //     drawFormTable();
-    // }
 }
 
 function drawFormTable() {
