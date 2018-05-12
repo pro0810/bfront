@@ -21,50 +21,59 @@ function xhttp_get(url, callback) {
     xhttp.send();
 }
 
-function get_brands(field, callback) {
-    xhttp_get('/review/lookup?type=models', function(err, body) {
-        return callback(field, null, ['AUDI', 'PORCHE']);
-        callback(field, null, body['brands']);
+function get_brands() {
+    return new Promise(function(resolve, reject) {
+        xhttp_get('/review/lookup?type=models', function(err, body) {
+            if (! err) {
+                resolve(['AUDI', 'PORCHE']);
+            } else {
+                reject(err);
+            }
+        });
     });
 }
 
-function get_fueltypes(brand, field, callback) {
-    if (!brand) {
-        return callback(field, null, undefined);
-    }
-    xhttp_get('/review/lookup?type=models&brand=' + brand, function(err, body) {
-        if (brand === 'AUDI') {
-            return callback(field, null, ['BENZINE', 'DIESEL']);
-        } else {
-            return callback(field, null, ['BENZINE']);
-        }
-        callback(field, null, body['fueltypes']);
+function get_fueltypes(brand) {
+    return new Promise(function(resolve, reject) {
+        xhttp_get('/review/lookup?type=models&brand=' + brand, function (err, body) {
+            if (brand === 'AUDI') {
+                resolve(['BENZINE', 'DIESEL']);
+            } else {
+                resolve(['BENZINE']);
+            }
+        });
     });
 }
 
-function get_powers(brand, fueltype, field, callback) {
-    if (!brand|| !fueltype) {
-        return callback(field, null, undefined);
-    }
-    xhttp_get('/review/lookup?type=models&brand=' + brand + '&fueltype=' + fueltype, function(err, body) {
-        return callback(field, null, [100]);
-        callback(field, null, body['powers']);
+function get_powers(brand, fueltype) {
+    return new Promise(function(resolve, reject) {
+        xhttp_get('/review/lookup?type=models&brand=' + brand + '&fueltype=' + fueltype, function (err, body) {
+            if (! err) {
+                resolve([100]);
+            } else {
+                reject(err);
+            }
+        });
     });
 }
 
-function get_models(brand, fueltype, power, field, callback) {
-    if (!brand || !fueltype || !power) {
-        return callback(field, null, undefined);
-    }
-    xhttp_get('/review/lookup?type=models&brand=' + brand + '&fueltype=' + fueltype + '&power=' + power, function(err, body) {
-        return callback(field, null, ['Test model'])
-        callback(field, null, body['models']);
+function get_models(brand, fueltype, power) {
+    return new Promise(function(resolve, reject) {
+        xhttp_get('/review/lookup?type=models&brand=' + brand + '&fueltype=' + fueltype + '&power=' + power, function (err, body) {
+            if (! err) {
+                resolve(['Test model']);
+            } else {
+                reject(err);
+            }
+        });
     });
 }
 
-function get_franchise(catalog, field, callback) {
-    console.log(catalog);
-    console.log(field);
-    setTimeout(function() {callback(field, null, ['Franchise-1', 'Franchise-2'])}, 300);
-    return ['Franchise-1', 'Franchise-2'];
+function get_franchise(catalog) {
+    return new Promise(function(resolve, reject) {
+        console.log(catalog);
+        setTimeout(function () {
+            resolve(['Franchise-1', 'Franchise-2'])
+        }, 300);
+    });
 }

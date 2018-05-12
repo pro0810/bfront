@@ -813,6 +813,13 @@ function insertSelectToFormField(tdTag, annotation, options_arr) {
     titlebox.id = "editable_td";
 
     // options_arr.splice(0, 0, "unknown");
+    var select_option = document.createElement("option");
+    select_option.value = '';
+    select_option.innerHTML = '-- select --';
+    select_option.disabled = true;
+    select_option.selected = true;
+    titlebox.appendChild(select_option);
+
     for (var i in options_arr) {
         var select_option = document.createElement("option");
         select_option.value = options_arr[i];
@@ -965,6 +972,9 @@ function manipulateFormTableRow(rowTag, field, annotation) {
     }
     editableTag.onclick = function(event) {
         event.stopImmediatePropagation();
+        if (!field['options'] && field['refresh']) {
+            return;
+        }
         scroll_to_table_row(event.target);
         drawBarBox(annotation);
         if (field['type'] === 'option') {
@@ -1054,168 +1064,92 @@ function getValuesFromFuncParams(paramStr) {
     return valueArr;
 }
 
-function checkLastOptionsCallback(checkedField) {
-    var checked = false;
+function getCallbackOptions(item) {
+    checkedCallback = [];
+    if (! item) {
+        var sections = json['form']['sections'];
+        for (var i in sections) {
+            var fields = sections[i]['fields'];
+            for (var j in fields) {
+                var field = fields[j];
+                if (field['refresh'] && field['options'] === undefined) {
+                    var funcName = field['refresh'].substring(0, field['refresh'].indexOf('('));
+                    var funcParams = field['refresh'].substring(field['refresh'].indexOf('(') + 1, field['refresh'].indexOf(')'));
+                    var realParams = getValuesFromFuncParams(funcParams);
+                    var checkParams = true;
+                    for (var k in realParams) {
+                        if (! realParams[k]) {
+                            checkParams = false;
+                            break;
+                        }
+                    }
+                    if (checkParams) {
+                        console.log(funcName);
+                        var optionsCallbackPromise = function(field) {
+                            return new Promise(function(resolve, reject) {
+                                window[funcName].apply(null, realParams).then(function(result) {
+                                    field['options'] = result;
+                                    resolve(field['label']);
+                                }, function(err) {
+                                    showModalPopup('An error occurred on options callback!', err);
+                                    reject(field['label']);
+                                });
+                            });
+                        };
+                        checkedCallback.push(optionsCallbackPromise(field));
+                    }
+                }
+            }
+        }
+        Promise.all(checkedCallback).then(function(values) {
+            console.log(values);
+            drawFormTable();
+        }, function(errors) {
+            console.log(errors);
+            showModalPopup('An error occurred on options callback!');
+        });
+    }
+}
+
+function searchFieldFromLabel(label) {
     var sections = json['form']['sections'];
     for (var i in sections) {
         var fields = sections[i]['fields'];
         for (var j in fields) {
-            var field = fields[j];
-            if (field === checkedField) {
-                checked = true;
-            } else if (field['options_callback']) {
-                checked = false;
+            if (fields[j]['label'] === label) {
+                return fields[j];
             }
         }
     }
-    return checked;
-}
-
-function optionsCallback(field, error, result) {
-    if (result) {
-        field['options'] = result;
-    } else {
-        if (error) {
-            showModalPopup('An error occurred on options callback!', error);
-        }
-        return;
-        // field['options'] = [];
-        // console.log(error);
-    }
-
-    if (! field['value'] && field['options'] && field['options'][0]) {
-        field['value'] = field['options'][0];
-        var annotation = searchFieldData(field['label']);
-        if (annotation) {
-            annotation['text'] = field['value'];
-            annotation['prevtext'] = field['value'];
-        }
-    }
-    // if (checkLastOptionsCallback(field)) {
-    //     drawFormTable();
-    // }
 }
 
 function invalidateCallbackOptions(label) {
-    var invalidateArr = [];
-    var callback_hierachy = {
-        "merk":{"invalidate":["type_brandstof"]},
-        "type_brandstof":{"invalidate":["vermogen"]},
-        "vermogen":{"invalidate":["model"]},
-        "cataloguswaarde":{"invalidate":["franchise"]}
-    };
-    if (callback_hierachy && label && callback_hierachy[label] && callback_hierachy[label]['invalidate']) {
-        for (var k in callback_hierachy[label]['invalidate']) {
-            var sections = json['form']['sections'];
-            for (var i in sections) {
-                var fields = sections[i]['fields'];
-                for (var j in fields) {
-                    if (fields[j]['label'] === callback_hierachy[label]['invalidate'][k] && fields[j]['options']) {
-                        fields[j]['value'] = '';
-                        fields[j]['options'] = undefined;
-                        var annotation = searchFieldData(fields[j]['label']);
-                        if (annotation) {
-                            annotation['text'] = fields[j]['value'];
-                        }
-                        invalidateCallbackOptions(fields[j]['label']);
-                    }
+    var field = searchFieldFromLabel(label);
+    if (field && field['onchange']) {
+        for (var i in field['onchange']['invalidate']) {
+            var invalidateField = searchFieldFromLabel(field['onchange']['invalidate'][i]);
+            if (invalidateField) {
+                invalidateField['value'] = '';
+                invalidateField['options'] = undefined;
+                var annotation = searchFieldData(field['onchange']['invalidate'][i]);
+                if (annotation) {
+                    annotation['text'] = '';
+                }
+            }
+        }
+        for (var i in field['onchange']['refresh']) {
+            var refreshField = searchFieldFromLabel(field['onchange']['refresh'][i]);
+            if (refreshField) {
+                refreshField['value'] = '';
+                refreshField['options'] = undefined;
+                var annotation = searchFieldData(field['onchange']['refresh'][i]);
+                if (annotation) {
+                    annotation['text'] = '';
                 }
             }
         }
     }
 }
-
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : new P(function (resolve) { resolve(result.value); }).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
-var __generator = (this && this.__generator) || function (thisArg, body) {
-    var _ = { label: 0, sent: function() { if (t[0] & 1) throw t[1]; return t[1]; }, trys: [], ops: [] }, f, y, t, g;
-    return g = { next: verb(0), "throw": verb(1), "return": verb(2) }, typeof Symbol === "function" && (g[Symbol.iterator] = function() { return this; }), g;
-    function verb(n) { return function (v) { return step([n, v]); }; }
-    function step(op) {
-        if (f) throw new TypeError("Generator is already executing.");
-        while (_) try {
-            if (f = 1, y && (t = y[op[0] & 2 ? "return" : op[0] ? "throw" : "next"]) && !(t = t.call(y, op[1])).done) return t;
-            if (y = 0, t) op = [0, t.value];
-            switch (op[0]) {
-                case 0: case 1: t = op; break;
-                case 4: _.label++; return { value: op[1], done: false };
-                case 5: _.label++; y = op[1]; op = [0]; continue;
-                case 7: op = _.ops.pop(); _.trys.pop(); continue;
-                default:
-                    if (!(t = _.trys, t = t.length > 0 && t[t.length - 1]) && (op[0] === 6 || op[0] === 2)) { _ = 0; continue; }
-                    if (op[0] === 3 && (!t || (op[1] > t[0] && op[1] < t[3]))) { _.label = op[1]; break; }
-                    if (op[0] === 6 && _.label < t[1]) { _.label = t[1]; t = op; break; }
-                    if (t && _.label < t[2]) { _.label = t[2]; _.ops.push(op); break; }
-                    if (t[2]) _.ops.pop();
-                    _.trys.pop(); continue;
-            }
-            op = body.call(thisArg, _);
-        } catch (e) { op = [6, e]; y = 0; } finally { f = t = 0; }
-        if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
-    }
-};
-function sync_sleep(ms) {
-    return new Promise(function (resolve) { return setTimeout(resolve, ms); });
-}
-
-function getCallbackOptions() {
-    return __awaiter(this, void 0, void 0, function () {
-        return __generator(this, function (_a) {
-            switch (_a.label) {
-                case 0:
-                    _a.label = 1;
-                case 1:
-                    var sections = json['form']['sections'];
-                    var finishedCallback = true;
-                    for (var i in sections) {
-                        var fields = sections[i]['fields'];
-                        for (var j in fields) {
-                            var field = fields[j];
-                            if (field['options_callback'] && field['options'] === undefined ) {
-                                finishedCallback = false;
-                                console.log(checkedCallback);
-                                if(checkedCallback.indexOf(field['label']) == -1) {
-                                    var funcName = field['options_callback'].substring(0, field['options_callback'].indexOf('('));
-                                    var funcParams = field['options_callback'].substring(field['options_callback'].indexOf('(') + 1, field['options_callback'].indexOf(')'));
-                                    var realParams = getValuesFromFuncParams(funcParams);
-                                    var checkParams = true;
-                                    for (var k in realParams) {
-                                        if (! realParams[k]) {
-                                            checkParams = false;
-                                            break;
-                                        }
-                                    }
-                                    if (checkParams) {
-                                        checkedCallback.push(field['label']);
-                                        realParams.push(field);
-                                        realParams.push(optionsCallback);
-                                        window[funcName].apply(null, realParams);
-                                    }
-
-                                }
-                            }
-                        }
-                    }
-                    if (finishedCallback) {
-                        drawFormTable();
-                        return [3 /*break*/, 3];
-                    }
-                    return [4 /*yield*/, sync_sleep(100)];
-                case 2:
-                    _a.sent();
-                    return [3 /*break*/, 1];
-                case 3: return [2 /*return*/];
-            }
-        });
-    });
-}
-
 
 function updateOptionsFromTagOrCallback() {
     var sections = json['form']['sections'];
@@ -1223,7 +1157,7 @@ function updateOptionsFromTagOrCallback() {
         var fields = sections[i]['fields'];
         for (var j in fields) {
             var field = fields[j];
-            if (! field['options_callback']) {
+            if (! field['refresh']) {
                 field['options'] = json["tag_types"][field['label']];
                 if (! field['value'] && field['options'] && field['options'][0]) {
                     var annotation = searchFieldData(fields[j]['label']);
@@ -1234,7 +1168,6 @@ function updateOptionsFromTagOrCallback() {
             }
         }
     }
-    checkedCallback = [];
     getCallbackOptions();
 }
 
@@ -2445,11 +2378,6 @@ function drawBarBox(annotation, noRedraw) {
         startedDragging = false;
         return;
     }
-    // if (!noRedraw) {
-    //     hideBarBox();
-    // }
-
-    // event.stopImmediatePropagation();
     if (annotation["unrecognized"]) {
         if (!lastActiveField.annotation || !lastActiveField.element) {
             hideChoiceBox();
@@ -2983,7 +2911,7 @@ function getJsonData() {
             rows.push(row);
         }
     }
-    var tags = []
+    var tags = [];
     for (var tagIndex in json["tags"]) {
         var tag = json["tags"][tagIndex];
         if (!tag) {
