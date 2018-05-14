@@ -1,4 +1,5 @@
-var error_confidence = 70;
+var default_confidence = 70;
+var saved_confidence = {};
 var extra_space = 0.0005;
 var activeImage = 0;
 var showJson = false;
@@ -58,6 +59,40 @@ var keyCodes = {
     NUM8: 104,
     NUM9: 105
 };
+
+function getSavedConfidence() {
+    return new Promise(function(resolve) {
+        var xhttp;
+        if (window.XMLHttpRequest) {
+            // code for modern browsers
+            xhttp = new XMLHttpRequest();
+        } else {
+            // code for old IE browsers
+            xhttp = new ActiveXObject("Microsoft.XMLHTTP");
+        }
+        xhttp.open("GET", "/review/fieldThresholds.json", true);
+        xhttp.onloadend = function () {
+            if (xhttp.status === 200) {
+                try {
+                    saved_confidence = JSON.parse(this.responseText);
+                } catch (err) {
+                    console.error("error in json parse getErrorConfidenceDict");
+                }
+            }
+            resolve();
+        };
+        try {
+            xhttp.send();
+        }
+        catch (err) {
+            console.log('Error getting fieldThresholds.json')
+        }
+    });
+}
+
+function get_error_confidence(label) {
+    return saved_confidence[label] !== undefined ? saved_confidence[label] : default_confidence;
+}
 
 Number.isInteger = Number.isInteger || function(value) {
     return typeof value === 'number' && isFinite(value) && Math.floor(value) === value;
@@ -312,19 +347,23 @@ function toggle_original() {
     clickedUnrecognized = [];
     hideChoiceBox();
     if (originalToggle) {
-        $("#annotator-toggle-original").innerHTML = '<a href="#" class="si-facebook"><span class="ts-icon"><i class="icon-undo"></i></span><span class="ts-text">Original</span></a>';
+        $("#annotator-toggle-original .icon-repeat").replaceWith("<i class='icon-undo'></i>");
+        $("#annotator-toggle-original .ts-text").replaceWith("<span class='ts-text'>Original</span>");
         pointers[activeImage] = originalPointers[activeImage]?originalPointers[activeImage]:[];
         if (saved_json && saved_json["tags"]){
             json["tags"] = saved_json["tags"];
         }
     } else {
-        $("#annotator-toggle-original").innerHTML = '<a href="#" class="si-facebook"><span class="ts-icon"><i class="icon-repeat"></i></span><span class="ts-text">Saved</span></a>';
+        $("#annotator-toggle-original .icon-undo").replaceWith("<i class='icon-repeat'></i>");
+        $("#annotator-toggle-original .ts-text").replaceWith("<span class='ts-text'>Saved</span>");
         originalPointers[activeImage] = pointers[activeImage];
         pointers[activeImage] = {};
         json["tags"] = originalJsonTags;
     }
     setupImage(activeImage);
     hideBarBox();
+    generateTable();
+
     originalToggle = !originalToggle;
 }
 
@@ -609,7 +648,7 @@ function generateMetadataTable() {
                 continue;
             }
             (function(annotation, pointerIndex, annotationIndex) {
-                var tableRow = createTableRow(["table-annotation", parseFloat(annotation["confidence"]) >= error_confidence ? "entity-cell-confident" : "entity-cell-danger"], {
+                var tableRow = createTableRow(["table-annotation", parseFloat(annotation["confidence"]) >= get_error_confidence(annotation["label"]) ? "entity-cell-confident" : "entity-cell-danger"], {
                     "label": annotation["label"],
                     "content": annotation["text"],
                     "confidence": annotation["confidence"] + "%"
@@ -660,7 +699,7 @@ function generateMetadataTable() {
             continue;
         }
         (function(tag, tagIndex) {
-            var tableRow = createTableRow(["table-tag", "active", parseFloat(tag["confidence"]) >= error_confidence ? "entity-cell-confident" : "entity-cell-danger"], {
+            var tableRow = createTableRow(["table-tag", "active", parseFloat(tag["confidence"]) >= get_error_confidence(tag["label"]) ? "entity-cell-confident" : "entity-cell-danger"], {
                 "label": tag["label"],
                 "content": tag["text"],
                 "confidence": tag["confidence"] + "%"
@@ -708,7 +747,7 @@ function generateMetadataTable() {
             failedChecks.push(check);
             continue;
         }
-        createTableRow(["table-check", "success", parseFloat(check["confidence"]) >= error_confidence ? "entity-cell-confident" : "entity-cell-danger"], {
+        createTableRow(["table-check", "success", parseFloat(check["confidence"]) >= get_error_confidence(check['label']) ? "entity-cell-confident" : "entity-cell-danger"], {
             "label": check["label"],
             "content": check["text"],
             "confidence": check["confidence"] + "%"
@@ -722,7 +761,7 @@ function generateMetadataTable() {
     }
     for (var checkIndex in failedChecks) {
         var check = failedChecks[checkIndex];
-        createTableRow(["table-check", "warning", parseFloat(check["confidence"]) >= error_confidence ? "entity-cell-confident" : "entity-cell-danger"], {
+        createTableRow(["table-check", "warning", parseFloat(check["confidence"]) >= get_error_confidence(check['label']) ? "entity-cell-confident" : "entity-cell-danger"], {
             "label": check["label"],
             "content": check["text"],
             "confidence": check["confidence"] + "%"
@@ -781,22 +820,6 @@ function searchFieldData(label) {
             }
         }
     }
-}
-
-function createManualAnnotationFromForm(label, text) {
-    var annotation = createManualAnnotation(0, 0, 0, 0, label);
-    for (var i in json['tags']) {
-        if (json['tags'][i]['label'] === label) {
-            annotation['text'] = json['tags'][i]['text'];
-            annotation['confidence'] = json['tags'][i]['confidence'];
-            annotation['error'] = annotation['confidence'] >= error_confidence;
-            return annotation;
-        }
-    }
-    annotation['text'] = text;
-    annotation['confidence'] = 0;
-    annotation['error'] = annotation['confidence'] >= error_confidence;
-    return annotation;
 }
 
 function insertSelectToFormField(tdTag, annotation, options_arr) {
@@ -1029,7 +1052,7 @@ function initializeForms() {
                             fieldValue = annotation['text'];
                         // }
                         annotation['confidence'] = json['tags'][k]['confidence'];
-                        annotation['error'] = annotation['confidence'] >= error_confidence;
+                        annotation['error'] = annotation['confidence'] >= get_error_confidence(annotation['label']);
                         break;
                     }
                 }
@@ -1172,6 +1195,7 @@ function updateOptionsFromTagOrCallback() {
 }
 
 function drawFormTable() {
+    generateTableHeader();
     var sections = json['form']['sections'];
     for (var i in sections) {
         var fields = sections[i]['fields'];
@@ -1198,7 +1222,7 @@ function drawFormTable() {
             if (checkVisible(fields[j], fields)) {
                 var tableRow = createTableRow([
                         "table-annotation",
-                        annotation['confidence'] >= error_confidence ? "entity-cell-confident" : "entity-cell-danger"],
+                        annotation['confidence'] >= get_error_confidence(fields[j]['label']) ? "entity-cell-confident" : "entity-cell-danger"],
                     {
                         "label": fields[j]['label'],
                         "content": fields[j]['value'],
@@ -1213,9 +1237,9 @@ function drawFormTable() {
 }
 
 function generateFormTable() {
-    generateTableHeader();
     initializeForms();
     updateOptionsFromTagOrCallback();
+    // generateTableHeader();
 }
 
 function generateTable() {
@@ -1821,6 +1845,7 @@ function drawBarCell(annotation, focus) {
             annotation["shapes"] = [];
             annotation["boxes"] = [];
             annotation.destroyBox();
+
             // delete pointers[activeImage]["rows"][annotation["row_to_line"]][annotation["index"]];
         }
     })(annotation, fieldInput);
@@ -2479,6 +2504,7 @@ function drawBarBox(annotation, noRedraw) {
             clearAnnotations();
             loadAnnotations();
             hideBarBox();
+            generateTable();
         }
     })(annotation);
 
@@ -2694,7 +2720,7 @@ function loadThumbnails() {
     for (var pictureIndex in json["pictures"]) {
         var imgContainer = document.createElement("div");
         for (var tagIndex in json["tags"]) {
-            if (parseInt(pictureIndex) + 1 == json["tags"][tagIndex]["label"] && json["tags"][tagIndex]["confidence"] < error_confidence) {
+            if (parseInt(pictureIndex) + 1 == json["tags"][tagIndex]["label"] && json["tags"][tagIndex]["confidence"] < get_error_confidence(json["tags"][tagIndex]["label"])) {
                 imgContainer.classList.add("error-thumbnail");
             }
         }
@@ -2729,7 +2755,7 @@ function generate_thumbnail_table() {
             }
             var tag = json["tags"][tagIndex];
             (function(tag, tagIndex) {
-                var tableRow = createTableRow(["table-tag", "active", parseFloat(tag["confidence"]) >= error_confidence ? "entity-cell-confident" : "entity-cell-danger"], {
+                var tableRow = createTableRow(["table-tag", "active", parseFloat(tag["confidence"]) >= get_error_confidence(tag['label']) ? "entity-cell-confident" : "entity-cell-danger"], {
                     "label": tag["label"],
                     "content": tag["text"],
                     "confidence": tag["confidence"] + "%"
@@ -2786,13 +2812,14 @@ function resolveButtons() {
 }
 
 function switchActiveImage(newActive) {
-    originalToggle = false;
     if (newActive == -1) {
         st_flag_arr[activeImage] = !rightToggle;
         rightToggle = st_flag_arr[newActive];
         // if (rightToggle == undefined)
         rightToggle = true;
         toggle_table();
+        originalToggle = true;
+        toggle_original();
         hideChoiceBox();
         hideBarBox();
         clearAnnotations();
@@ -2820,6 +2847,8 @@ function switchActiveImage(newActive) {
         if (rightToggle == undefined)
             rightToggle = true;
         toggle_table();
+        originalToggle = true;
+        toggle_original();
 
         if (activeImage == -1) {
             images.children().last().remove();
@@ -3003,7 +3032,7 @@ function makeAnnotation(imageIndex, annotation, type) {
     annotation["imageIndex"] = imageIndex;
     annotation["src"] = src;
     annotation["prevtext"] = annotation["text"];
-    annotation["error"] = (annotation["confidence"] <= error_confidence);
+    annotation["error"] = (annotation["confidence"] <= get_error_confidence(annotation['label']));
     annotation["creating"] = false;
     annotation["shapes"] = [];
     annotation["lineIndex"] = parseInt(annotation["upperleft"][1]);
@@ -3274,7 +3303,7 @@ function setupImage(imageIndex) {
                 }],
                 compress_whitespace: false,
                 confidence: tag["confidence"],
-                error: tag["confidence"] < error_confidence,
+                error: tag["confidence"] < get_error_confidence(tag['label']),
                 label: tag["label"],
                 annotationIndex: annotations.length,
                 shapes: [{
@@ -3617,5 +3646,5 @@ $(document).on("ready", function() {
     if (instance) {
         $("#instanceType").val(instance);
     }
-    startup();
+    getSavedConfidence(startup());
 });
