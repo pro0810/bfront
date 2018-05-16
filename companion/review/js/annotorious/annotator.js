@@ -28,6 +28,7 @@ var saved_json;
 var originalJsonTags;
 var originalPointers = [];
 var checkedCallback;
+var clickedPageRangeLabel;
 var keyCodes = {
     TAB: 9,
     ENTER: 13,
@@ -617,6 +618,14 @@ function clear_right_input() {
     if (right_input) {
         var value = right_input.value;
         right_input.parentElement.textContent = value;
+        if (clickedPageRangeLabel) {
+            var field = searchFieldFromLabel(clickedPageRangeLabel);
+            var annotation = searchFieldData(clickedPageRangeLabel);
+            annotation['text'] = value;
+            annotation['prevtext'] = value;
+            field['value'] = value;
+            clickedPageRangeLabel = undefined;
+        }
         // $(right_input).remove();
     }
 }
@@ -989,6 +998,45 @@ function insertInputToFormField(tdTag, annotation, validType) {
     }
 }
 
+function insertPageRangeInputToFormField(tdTag, field, validType) {
+    if (activeImage !== -1) {
+        clickedPageRangeLabel = field['label'];
+        switchActiveImage(-1);
+    }
+    var titlebox = document.createElement("input");
+    var tooltip = getTooltip(validType);
+    titlebox.setAttribute('title', tooltip);
+    titlebox.value = field['value'] ? field['value'] : "";
+    titlebox.style.border = "1px solid";
+    titlebox.style.borderRadius = "3px";
+    titlebox.style.height = "21px";
+    titlebox.style.width = "100%";
+    titlebox.style["margin"] = "0px";
+    titlebox.id = "editable_td";
+    titlebox.onkeydown = (function(field) {
+        return function(event) {
+            if (event.keyCode === keyCodes.ENTER) {
+                event.stopImmediatePropagation();
+                clear_right_input();
+            } else if (event.keyCode === 27) {
+                titlebox.value = field['value'];
+                clear_right_input();
+            }
+        }
+    })(field);
+
+    $(titlebox).click(function() {
+        event.stopPropagation();
+    });
+    $(tdTag).empty();
+    $(tdTag).append(titlebox);
+    titlebox.focus();
+    if (tooltip) {
+        $(titlebox).tooltip();
+    }
+}
+
+
 function manipulateFormTableRow(rowTag, field, annotation) {
     var editableTag = rowTag.childNodes[1];
     if (annotation) {
@@ -1001,7 +1049,9 @@ function manipulateFormTableRow(rowTag, field, annotation) {
         }
         scroll_to_table_row(event.target);
         drawBarBox(annotation);
-        if (field['type'] === 'option') {
+        if (field['type'] === 'page-range') {
+            insertPageRangeInputToFormField(editableTag, field);
+        } else if (field['type'] === 'option') {
             insertSelectToFormField(annotation['edit_tag'], annotation, field['options']);
         } else {
             insertInputToFormField(annotation['edit_tag'], annotation, field['type']);
@@ -1040,7 +1090,7 @@ function initializeForms() {
                 fieldConfidence = annotation['confidence'] ? annotation['confidence'] : 0;
                 // }
             } else {
-                annotation = createManualAnnotation(0, 0, 0, 0, fields[j]['label']);
+                annotation = createManualAnnotation(0, 0, 0, 0, fields[j]['label'], 0);
                 annotation['confidence'] = 0;
                 // if (! fields[j]['options_callback'] || firstLoaded) {
                 fieldValue = fields[j]['default'] ? fields[j]['default'] : '';
@@ -1257,7 +1307,7 @@ function generateFormTable() {
 
 function generateTable() {
     console.log('generate_table');
-    if (json['form'] && json['form']['sections'] && json['form']['sections'] && Array.isArray(json['form']['sections']) && json['form']['sections'].length) {
+    if (json['form'] && json['form']['sections'] && Array.isArray(json['form']['sections']) && json['form']['sections'].length) {
         generateFormTable();
     } else if ($("#instanceSelected").selectpicker("val") != default_table_type) {
         generateRowTable();
@@ -1362,9 +1412,9 @@ $("#fix-button").on("click", function() {
     fixNextInList();
 });
 
-function createManualAnnotation(x1, y1, x2, y2, label) {
-    if (activeImage < 0) {
-        return;
+function createManualAnnotation(x1, y1, x2, y2, label, imageIndex) {
+    if (imageIndex === undefined) {
+        imageIndex = activeImage;
     }
     return {
         compress_whitespace: false,
@@ -1374,18 +1424,18 @@ function createManualAnnotation(x1, y1, x2, y2, label) {
         shapes: [{
             type: "rect",
             geometry: {
-                x: x1 / images.children()[activeImage].clientWidth,
-                y: y1 / images.children()[activeImage].clientHeight,
-                width: (x2 - x1) / images.children()[activeImage].clientWidth,
-                height: (y2 - y1) / images.children()[activeImage].clientHeight
+                x: x1 / images.children()[imageIndex].clientWidth,
+                y: y1 / images.children()[imageIndex].clientHeight,
+                width: (x2 - x1) / images.children()[imageIndex].clientWidth,
+                height: (y2 - y1) / images.children()[imageIndex].clientHeight
             }
         }],
-        annotationIndex: pointers[activeImage]["annotations"].length,
+        annotationIndex: pointers[imageIndex]["annotations"].length,
         lineIndex: getMaxLineIndexFromAnnotations() + 1,
-        src: images.children()[activeImage].src,
+        src: images.children()[imageIndex].src,
         text: "",
-        imageIndex: activeImage
-        //,page: [""+activeImage]
+        imageIndex: imageIndex
+        //,page: [""+imageIndex]
     };
 }
 
@@ -2053,7 +2103,6 @@ function getAnnotationFromLabel(annotation) {
     }
 
 }
-
 
 function drawTypeChoiceRow (annotation, label, type, choiceNum) {
     if (type == "label") {
@@ -2724,6 +2773,26 @@ function loadAnnotations() {
     }
 }
 
+function getLastValueForPageRange(val) {
+    var n;
+    if (val) {
+        var x = Math.max(val.lastIndexOf(';'), val.lastIndexOf('-'));
+        if (x === -1) {
+            n = Math.floor(Number(val));
+            if (n !== Infinity && String(n) === val && n > 0) {
+                return val;
+            }
+        } else {
+            val = val.substring(x + 1);
+            n = Math.floor(Number(val));
+            if (n !== Infinity && String(n) === val && n > 0) {
+                return val;
+            }
+        }
+    }
+}
+
+
 function loadThumbnails() {
     var imgThumb = document.createElement("div");
     imgThumb.classList.add("active-image");
@@ -2747,14 +2816,42 @@ function loadThumbnails() {
         imgContainer.onclick = (function(pictureIndex) {
             return function(event) {
                 event.stopImmediatePropagation();
-                clear_right_input();
-                switchActiveImage(parseInt(pictureIndex));
+                if (clickedPageRangeLabel) {
+                    var pageRangeTd = $('#editable_td');
+                    var val = pageRangeTd.val();
+                    var lastVal = getLastValueForPageRange(val);
+                    console.log(val);
+                    console.log(lastVal);
+                    if (lastVal && Number(lastVal) < pictureIndex + 1) {
+                        if (event.shiftKey && !val.includes('-' + lastVal)) {
+                            pageRangeTd.val(val + '-' + String(pictureIndex + 1));
+                            pageRangeTd.focus();
+                            return;
+                        } else if (event.ctrlKey) {
+                            pageRangeTd.val(val + ';' + String(pictureIndex + 1));
+                            pageRangeTd.focus();
+                            return;
+                        }
+                    }
+                    pageRangeTd.val(pictureIndex + 1);
+                    pageRangeTd.focus();
+                } else {
+                    clear_right_input();
+                    switchActiveImage(pictureIndex);
+                }
             }
-        })(pictureIndex);
+        })(parseInt(pictureIndex));
         imgThumb.appendChild(imgContainer);
     }
     images.append(imgThumb);
-    generate_thumbnail_table();
+    if (json['form'] && json['form']['sections'] && Array.isArray(json['form']['sections'])) {
+        if (!clickedPageRangeLabel) {
+            generateFormTable();
+        }
+    } else {
+        generate_thumbnail_table();
+    }
+
 }
 
 function generate_thumbnail_table() {
@@ -2842,12 +2939,13 @@ function switchActiveImage(newActive) {
         if (firstLoaded) {
             firstLoaded = false;
         }
+        loadThumbnails();
         activeImage = newActive;
         if (!json.offset)
             $("#page-tracker").text((1 + activeImage) + " / " + images.children().length);
         else
             $("#page-tracker").text((activeImage) + " / " + (images.children().length - 1));
-        loadThumbnails();
+
         resolveButtons();
     }
     if (newActive >= 0 && newActive < images.children().length && activeImage !== newActive) {
@@ -3444,7 +3542,7 @@ function loadImageJson(imageIndex) {
         var subjson = JSON.parse(this.responseText);
         finalReverses[imageIndex] = subjson;
         setupImage(imageIndex);
-        if (imageIndex === activeImage) {
+        if (imageIndex === json["pictures"].length - 1) {
             afterFirstLoad();
         } else {
             // generateTable();
@@ -3603,9 +3701,15 @@ function loadInputJson() {
 }
 
 function afterFirstLoad() {
-    loadAnnotations();
-    generateTable();
-    resolveButtons();
+    if (!json['show_thumbnails']) {
+        loadAnnotations();
+        generateTable();
+        resolveButtons();
+    } else {
+        firstLoaded = true;
+        switchActiveImage(-1);
+    }
+
     $("#choicebox").draggable({
         axis: "x",
         containment: "#draggable-containment"
@@ -3615,10 +3719,6 @@ function afterFirstLoad() {
         containment: "#draggable-containment"
     });
     $("#footer").css("margin-top", "50px");
-    if (activeImage == 0 && json["show_thumbnails"]) {
-        firstLoaded = true;
-        switchActiveImage(-1);
-    }
     document.dispatchEvent(new Event('post_afterFirstLoad'));
 }
 
@@ -3659,5 +3759,5 @@ $(document).on("ready", function() {
     if (instance) {
         $("#instanceType").val(instance);
     }
-    getSavedConfidence(startup());
+    getSavedConfidence().then(startup);
 });
