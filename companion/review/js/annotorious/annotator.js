@@ -2827,7 +2827,7 @@ function loadThumbnails() {
                             pageRangeTd.val(val + '-' + String(pictureIndex + 1));
                             pageRangeTd.focus();
                             return;
-                        } else if (event.ctrlKey) {
+                        } else if (event.ctrlKey || event.metaKey) {
                             pageRangeTd.val(val + ';' + String(pictureIndex + 1));
                             pageRangeTd.focus();
                             return;
