@@ -1370,6 +1370,7 @@ function fixNextInList() {
 }
 
 $("#fix-button").on("click", function() {
+    console.log('clicked fix button');
     fixing = true;
     fixButtonList = [];
 
@@ -2116,7 +2117,7 @@ $(document).on("keydown", function(event) {
         return;
     }
     if (!barBox.hasChildNodes() && !choiceBox.hasChildNodes() && event.keyCode === keyCodes.ENTER && !event.shiftKey) {
-        // event.preventDefault();
+        event.preventDefault();
         $("#fix-button").click();
         return;
     }
@@ -2463,7 +2464,7 @@ function drawTypeChoice(annotation) {
         }
     };
 
-    choiceBox.focus();
+
     $(choiceBox).click(function(event) {
         // console.log(event.keyCode);
         event.stopPropagation();
@@ -2472,6 +2473,7 @@ function drawTypeChoice(annotation) {
     setTimeout(function() {
         scroll_to_annotation(annotation, choiceBox);
         choiceBox.style.visibility = "";
+        choiceBox.focus();
     }, 10);
     saveToTimeMachine();
 }
