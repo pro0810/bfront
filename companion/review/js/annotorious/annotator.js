@@ -21,7 +21,7 @@ var default_table_type = "Metadata";
 var select_label_style_arr = ["success", "warning", "default", "danger", "info"];
 var clickedUnrecognized = [];
 var undoLimit = 10;
-var show_unrecognized_text = false;
+var show_unrecognized_text = true;
 var maxLineSpaceForIntegrate = 5;
 var firstLoaded;
 var saved_json;
@@ -58,8 +58,11 @@ var keyCodes = {
     NUM6: 102,
     NUM7: 103,
     NUM8: 104,
-    NUM9: 105
+    NUM9: 105,
+    a: 65,
+    z: 90
 };
+var choiceNumLists = ['1','2','3','4','5','6','7','8','9','a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z'];
 
 function getSavedConfidence() {
     return new Promise(function(resolve) {
@@ -341,7 +344,8 @@ $("#annotator-toggle-right").click(toggle_table);
 $("#annotator-toggle-original").click(toggle_original);
 
 function toggle_original(changeValue) {
-    if (activeImage == -1) {
+    console.log("toggle_original");
+    if (activeImage === -1) {
         return;
     }
     lastActiveField = {};
@@ -350,22 +354,29 @@ function toggle_original(changeValue) {
     if (originalToggle) {
         $("#annotator-toggle-original .icon-repeat").replaceWith("<i class='icon-undo'></i>");
         $("#annotator-toggle-original .ts-text").replaceWith("<span class='ts-text'>Original</span>");
-        if (!changeValue) {
-            pointers[activeImage] = originalPointers[activeImage]?originalPointers[activeImage]:[];
+        if (changeValue !== true) {
+            pointers[activeImage] = originalPointers[activeImage]?JSON.parse(originalPointers[activeImage]):[];
             if (saved_json && saved_json["tags"]){
                 json["tags"] = saved_json["tags"];
             }
+            // setupImage(activeImage);
+            hideBarBox();
+            generateTable();
         }
     } else {
         $("#annotator-toggle-original .icon-undo").replaceWith("<i class='icon-repeat'></i>");
         $("#annotator-toggle-original .ts-text").replaceWith("<span class='ts-text'>Saved</span>");
-        originalPointers[activeImage] = pointers[activeImage];
-        pointers[activeImage] = {};
-        json["tags"] = originalJsonTags;
+
+        if (changeValue !== true) {
+            originalPointers[activeImage] = JSON.stringify(pointers[activeImage]);
+            pointers[activeImage] = {};
+            json["tags"] = originalJsonTags;
+            setupImage(activeImage);
+            hideBarBox();
+            generateTable();
+        }
     }
-    setupImage(activeImage);
-    hideBarBox();
-    generateTable();
+
     originalToggle = !originalToggle;
 }
 
@@ -1361,17 +1372,21 @@ function fixNextInList() {
 $("#fix-button").on("click", function() {
     fixing = true;
     fixButtonList = [];
+
     for (var pointerIndex in pointers) {
         var pointer = pointers[pointerIndex];
+        var tempFixButtonList = [];
+        var maxLineIndex = 0;
         for (var lineIndex in pointer["annotations"]) {
             if (pointer["annotations"][lineIndex]) {
                 var tempAnnotation = pointer["annotations"][lineIndex];
                 if (tempAnnotation["error"]) {
-                    fixButtonList.push({
+                    tempFixButtonList.push({
                         pointerIndex: parseInt(pointerIndex),
                         row: false,
                         annotation: tempAnnotation
                     });
+                    maxLineIndex = Math.max(maxLineIndex,  tempAnnotation['lineIndex']);
                 }
             }
         }
@@ -1381,11 +1396,12 @@ $("#fix-button").on("click", function() {
                     for (var annotationIndex in pointer["rows"][lineIndex]) {
                         var tempAnnotation = pointer["rows"][lineIndex][annotationIndex];
                         if (tempAnnotation["error"]) {
-                            fixButtonList.push({
+                            tempFixButtonList.push({
                                 pointerIndex: parseInt(pointerIndex),
                                 row: true,
                                 annotation: tempAnnotation
                             });
+                            maxLineIndex = Math.max(maxLineIndex,  tempAnnotation['lineIndex']);
                         }
                     }
                 }
@@ -1397,14 +1413,22 @@ $("#fix-button").on("click", function() {
                     for (var annotationIndex in pointer["unrecognized"][lineIndex]) {
                         var tempAnnotation = pointer["unrecognized"][lineIndex][annotationIndex];
                         if (tempAnnotation) {
-                            fixButtonList.push({
+                            tempFixButtonList.push({
                                 pointerIndex: parseInt(pointerIndex),
                                 row: true,
                                 annotation: tempAnnotation
                             });
+                            maxLineIndex = Math.max(maxLineIndex,  tempAnnotation['lineIndex']);
                             break;
                         }
                     }
+                }
+            }
+        }
+        for (var lineIndex = 0; lineIndex <= maxLineIndex; lineIndex ++) {
+            for (var k in tempFixButtonList) {
+                if (parseInt(tempFixButtonList[k]['annotation']['lineIndex']) === lineIndex) {
+                    fixButtonList.push(tempFixButtonList[k]);
                 }
             }
         }
@@ -1431,7 +1455,7 @@ function createManualAnnotation(x1, y1, x2, y2, label, imageIndex) {
             }
         }],
         annotationIndex: pointers[imageIndex]["annotations"].length,
-        lineIndex: getMaxLineIndexFromAnnotations() + 1,
+        lineIndex: getMaxLineIndexFromAnnotations(imageIndex) + 1,
         src: images.children()[imageIndex].src,
         text: "",
         imageIndex: imageIndex
@@ -1736,10 +1760,10 @@ function findAboveLineFirstAnnotation(annotation) {
     }
 }
 
-function getMaxLineIndexFromAnnotations() {
+function getMaxLineIndexFromAnnotations(imageIndex) {
     var maxIndex = 0;
-    for (var annotationIndex in pointers[activeImage]["annotations"]) {
-        var annotation = pointers[activeImage]["annotations"][annotationIndex];
+    for (var annotationIndex in pointers[imageIndex]["annotations"]) {
+        var annotation = pointers[imageIndex]["annotations"][annotationIndex];
         if (annotation["lineIndex"] > maxIndex) {
             maxIndex = annotation["lineIndex"];
         }
@@ -1749,7 +1773,7 @@ function getMaxLineIndexFromAnnotations() {
 
 
 function findBelowLineFirstAnnotation(annotation) {
-    var maxLine = Math.max(Math.max.apply(null, Object.keys(pointers[activeImage]["rows"])), getMaxLineIndexFromAnnotations());
+    var maxLine = Math.max(Math.max.apply(null, Object.keys(pointers[activeImage]["rows"])), getMaxLineIndexFromAnnotations(activeImage));
     for (var newLine=parseInt(annotation["lineIndex"]); newLine <= maxLine; newLine++) {
         if (pointers[activeImage]["rows"][newLine] && newLine != annotation["lineIndex"]) {
             return pointers[activeImage]["rows"][newLine][0];
@@ -1780,6 +1804,35 @@ function drawBarCell(annotation, focus) {
     fieldInput.setAttribute("name", annotation["label"]);
     fieldInput.setAttribute("placeholder", annotation["label"]);
     fieldInput.setAttribute("value", annotation["text"]);
+    var deleteIconTag = document.createElement("i");
+    deleteIconTag.classList.add("remove-label", "icon-line-cross");
+    fieldDiv.appendChild(deleteIconTag);
+    fieldDiv.appendChild(fieldInput);
+    deleteIconTag.onclick = (function(annotation, fieldInput) {
+        return function(event) {
+            event.stopImmediatePropagation();
+            event.preventDefault();
+            // lastActiveField = {
+            //     annotation: annotation,
+            //     element: event.target
+            // };
+            // saveToTimeMachine();
+            fieldInput.setAttribute("value", "");
+            if (annotation["edit_tag"]) {
+                if (annotation["edit_tag"].children.length) {
+                    $(annotation["edit_tag"].childNodes[0]).val("");
+                } else {
+                    annotation["edit_tag"].innerHTML = "";
+                }
+            }
+            annotation["text"] = "";
+            annotation["shapes"] = [];
+            annotation["boxes"] = [];
+            annotation.destroyBox();
+            // delete pointers[activeImage]["rows"][annotation["row_to_line"]][annotation["index"]];
+        }
+    })(annotation, fieldInput);
+
     fieldInput.onkeydown = (function() {
         return function(event) {
             // event.stopImmediatePropagation();
@@ -1791,27 +1844,35 @@ function drawBarCell(annotation, focus) {
                 // generateTable();
                 return;
             }
+            if (event.keyCode === keyCodes.DELETE && event.shiftKey) {
+                event.preventDefault();
+                deleteIconTag.click();
+                return;
+            }
             if (event.keyCode === keyCodes.DELETE && event.ctrlKey) {
+                event.preventDefault();
                 document.activeElement.blur();
                 $('#barbox').children().last().children().last().click();
                 return;
             }
             if (event.keyCode === keyCodes.ESCAPE) {
-                // event.preventDefault();
+                event.preventDefault();
                 addToPrevActive = false;
                 addToPrevLineIndex = undefined;
                 event.target.blur();
                 hideBarBox();
                 return;
             }
-            if (event.keyCode === keyCodes.SPACE && event.shiftKey || event.keyCode === keyCodes.ARROW_UP) {
+            if ((event.keyCode === keyCodes.SPACE && event.shiftKey) || event.keyCode === keyCodes.ARROW_UP) {
+                event.preventDefault();
                 var neighbourAnnotation = findNeighbourUnrecognizedAnnotation(annotation);
                 if (neighbourAnnotation) {
                     updateAnnotationFromUnrecognized(neighbourAnnotation);
                 }
                 return;
             }
-            if (event.keyCode === keyCodes.SPACE && event.ctrlKey || event.keyCode === keyCodes.ARROW_DOWN) {
+            if ((event.keyCode === keyCodes.SPACE && event.ctrlKey) || event.keyCode === keyCodes.ARROW_DOWN) {
+                event.preventDefault();
                 var neighbourAnnotation = findNeighbourUnrecognizedAnnotation(annotation);
                 if (neighbourAnnotation) {
                     neighbourAnnotation.destroyBox();
@@ -1821,6 +1882,7 @@ function drawBarCell(annotation, focus) {
             }
 
             if (event.keyCode === keyCodes.TAB) {
+                // event.preventDefault();
                 var newChecked = false;
                 var newAnnotation = undefined;
                 if (event.shiftKey) {
@@ -1883,35 +1945,6 @@ function drawBarCell(annotation, focus) {
             lastActiveField.element.parentElement.style.width = activeWidth.toString() + "%";
         }
     })(annotation);
-    var deleteIconTag = document.createElement("i");
-    deleteIconTag.classList.add("remove-label", "icon-line-cross");
-    fieldDiv.appendChild(deleteIconTag);
-    fieldDiv.appendChild(fieldInput);
-    deleteIconTag.onclick = (function(annotation, fieldInput) {
-        return function(event) {
-            event.stopImmediatePropagation();
-            event.preventDefault();
-            // lastActiveField = {
-            //     annotation: annotation,
-            //     element: event.target
-            // };
-            // saveToTimeMachine();
-            fieldInput.setAttribute("value", "");
-            if (annotation["edit_tag"]) {
-                if (annotation["edit_tag"].children.length) {
-                    $(annotation["edit_tag"].childNodes[0]).val("");
-                } else {
-                    annotation["edit_tag"].innerHTML = "";
-                }
-            }
-            annotation["text"] = "";
-            annotation["shapes"] = [];
-            annotation["boxes"] = [];
-            annotation.destroyBox();
-            // delete pointers[activeImage]["rows"][annotation["row_to_line"]][annotation["index"]];
-        }
-    })(annotation, fieldInput);
-
 
     $(fieldInput).on("input", function() {
         if (annotation["edit_tag"] && annotation["edit_tag"].children.length) {
@@ -2294,7 +2327,8 @@ function updateClickedUnrecognized(annotation) {
 function drawTypeChoice(annotation) {
     // hideBarBox();
     hideChoiceBox();
-    var choiceNum = 1;
+
+    var choiceNum = 0;
     if (annotation["unrecognized"]) {
         // clickedUnrecognized = [];
         // updateClickedUnrecognized(annotation);
@@ -2303,24 +2337,26 @@ function drawTypeChoice(annotation) {
 
     annotation.activateBox();
     lastChoiceField = annotation;
+    choiceBox.style.visibility = "collapse";
     choiceBox.style.display = "flex";
+
     var labels = getLabels().sort(labelSort);
     for (var labelIndex in labels) {
         if (!labels[labelIndex] || !labels[labelIndex]["label"]) {
             continue;
         }
-        drawTypeChoiceRow(annotation, labels[labelIndex], "label", choiceNum);
+        drawTypeChoiceRow(annotation, labels[labelIndex], "label", choiceNumLists[choiceNum]);
         choiceNum ++;
     }
     for (var tableIndex in json["table_types"]) {
         if (!json["table_types"][tableIndex] || !json["table_types"][tableIndex]["page"] || json["table_types"][tableIndex]["page"] != activeImage) {
             continue;
         }
-        drawTypeChoiceRow(annotation, json["table_types"][tableIndex], "line", choiceNum);
+        drawTypeChoiceRow(annotation, json["table_types"][tableIndex], "line", choiceNumLists[choiceNum]);
         choiceNum ++;
     }
     if (json["noOtherLabel"] === undefined || json["noOtherLabel"] === false) {
-        drawTypeChoiceRow(annotation, {label: "other"}, "other", choiceNum);
+        drawTypeChoiceRow(annotation, {label: "other"}, "other", choiceNumLists[choiceNum]);
     }
 
     var trashDiv = document.createElement("div");
@@ -2341,6 +2377,7 @@ function drawTypeChoice(annotation) {
             clickedUnrecognized = [];
             if (annotation["unrecognized"]) {
                 delete pointers[annotation["imageIndex"]]["unrecognized"][annotation["lineIndex"]];
+                delete finalReverses[annotation["imageIndex"]]["lines"][annotation["lineIndex"]];
             }
             // if (pointers[annotation["imageIndex"]]["annotations"]) {
             //     var indexAnnotation = pointers[annotation["imageIndex"]]["annotations"].indexOf(annotation);
@@ -2405,19 +2442,22 @@ function drawTypeChoice(annotation) {
         // }
 
         var digit;
-        if (keyCodes.NUM0 <= event.keyCode && event.keyCode <= keyCodes.NUM9) {
+        if (keyCodes.NUM0 < event.keyCode && event.keyCode <= keyCodes.NUM9) {
             digit = event.keyCode - keyCodes.NUM0;
-        } else if (keyCodes.KEY0 > event.keyCode || event.keyCode > keyCodes.KEY9) {
-            digit = azertymap[event.key];
-        } else {
+        } else if (keyCodes.KEY0 < event.keyCode && event.keyCode <= keyCodes.KEY9) {
             digit = event.keyCode - keyCodes.KEY0;
+        } else if (keyCodes.a <= event.keyCode && event.keyCode <=keyCodes.z) {
+            digit = event.keyCode - keyCodes.a + 10;
+        } else if (event.key in azertymap) {
+            digit = azertymap[event.key];
         }
+
         if (!digit) {
             return;
         }
-        if ((digit + 9) % 10 < choiceBox.children.length - 2) {
+        if (digit < choiceBox.children.length && digit > 0) {
             event.preventDefault();
-            choiceBox.children[(digit + 9) % 10].children[0].click();
+            choiceBox.children[digit - 1].children[0].click();
             // event.keyCode = null;
             return;
         }
@@ -2428,13 +2468,15 @@ function drawTypeChoice(annotation) {
         // console.log(event.keyCode);
         event.stopPropagation();
     });
+
     setTimeout(function() {
-        scroll_to_annotation(annotation);
+        scroll_to_annotation(annotation, choiceBox);
+        choiceBox.style.visibility = "";
     }, 10);
     saveToTimeMachine();
 }
 
-function scroll_to_annotation(annotation) {
+function scroll_to_annotation(annotation, choiceBox) {
     var imageHeight = $("#images .active-image").get(0).clientHeight;
     var annotation_top = 0;
     if (annotation["row_to_line"] != undefined && pointers[activeImage]["rows"][annotation["row_to_line"]][0]["shapes"][0]) {
@@ -2442,6 +2484,14 @@ function scroll_to_annotation(annotation) {
     } else if (annotation["shapes"][0]) {
         annotation_top = annotation["shapes"][0]["geometry"]["y"];
     }
+
+    if (choiceBox) {
+        var scroll_top = Math.max(0, Math.min(annotation_top * imageHeight - 280, (imageHeight - $(".content-img").height())));
+        var aboveTop = annotation_top * imageHeight - scroll_top - choiceBox.clientHeight + 120;
+        if (aboveTop > 80) choiceBox.style.top = aboveTop + "px";
+        else choiceBox.style.top = annotation_top * imageHeight - scroll_top + 240 + "px";
+    }
+
     $(".content-img").animate({
         scrollTop: annotation_top * imageHeight - 280
     }, 100, null);
@@ -2510,7 +2560,7 @@ function drawBarBox(annotation, noRedraw) {
     }
     scroll_to_table_row(annotation["edit_tag"]);
     var scrollPos = scroll_to_annotation(annotation);
-    var scroll_top = Math.max(0, Math.min(scrollPos.annotation_top * scrollPos.imageHeight - 280, (scrollPos.imageHeight - $(".content-img").height())))
+    var scroll_top = Math.max(0, Math.min(scrollPos.annotation_top * scrollPos.imageHeight - 280, (scrollPos.imageHeight - $(".content-img").height())));
     barBox.style.top = Math.max(0, (scrollPos.annotation_top * scrollPos.imageHeight - scroll_top - 90)) + "px";
     barBox.style.display = "flex";
     var finalLine = pointers[activeImage]["rows"][annotation["row_to_line"]];
@@ -2939,6 +2989,7 @@ function switchActiveImage(newActive) {
         if (firstLoaded) {
             firstLoaded = false;
         }
+        set_table_types();
         loadThumbnails();
         activeImage = newActive;
         if (!json.offset)
@@ -2952,15 +3003,7 @@ function switchActiveImage(newActive) {
         if (!pointers[newActive]) {
             alert("Something went wrong");
         }
-        st_flag_arr[activeImage] = !rightToggle;
-        rightToggle = st_flag_arr[newActive];
-        if (rightToggle === undefined)
-            rightToggle = true;
-        toggle_table();
-        if (!(json['form'] && json['form']['sections'])) {
-            originalToggle = true;
-            toggle_original(true);
-        }
+
         if (activeImage === -1) {
             images.children().last().remove();
         } else {
@@ -2975,24 +3018,39 @@ function switchActiveImage(newActive) {
         if (firstLoaded) {
             firstLoaded = false;
         }
-        activeImage = newActive;
-        images.children()[activeImage].classList.add("active-image");
-        if (!json.offset)
-            $("#page-tracker").text((1 + activeImage) + " / " + images.children().length);
-        else
-            $("#page-tracker").text((activeImage) + " / " + (images.children().length - 1));
 
+        images.children()[newActive].classList.add("active-image");
+
+        if (!json.offset)
+            $("#page-tracker").text((1 + newActive) + " / " + images.children().length);
+        else
+            $("#page-tracker").text((newActive) + " / " + (images.children().length - 1));
+
+        st_flag_arr[activeImage] = !rightToggle;
+        rightToggle = st_flag_arr[newActive];
+        if (rightToggle === undefined)
+            rightToggle = true;
+        toggle_table();
+        // if (!(json['form'] && json['form']['sections'])) {
+
+        // }
+        activeImage = newActive;
+        originalToggle = true;
+        toggle_original(true);
         if (showJson) {
             loadJson();
         } else {
             loadAnnotations();
             if (!json['form']) {
-                generateTable();
+                set_table_types();
             }
+            generateTable();
         }
         resolveButtons();
+
+
     }
-    set_table_types();
+
 }
 
 $("#image-navigator-buttons button").on("click", function(event) {
@@ -3463,7 +3521,7 @@ function setupImage(imageIndex) {
                 annotation["type"] = row["type"];
                 annotation["page"] = row["page"];
                 index_counter = index_counter + 1;
-                annotation["row_to_line"] = row_to_line
+                annotation["row_to_line"] = row_to_line;
                 var finalLine = (row_to_line in finalLines ? finalLines[row_to_line] : []);
                 finalLine.push(annotation);
                 finalLines[row_to_line] = finalLine;
@@ -3486,10 +3544,10 @@ function setupImage(imageIndex) {
     if (imageIndex < pointers.length && show_unrecognized_text && !pointers[imageIndex]["unrecognized"]) {
         pointers[imageIndex]["unrecognized"] = getUnrecognizedAnnotation(imageIndex);
     }
-    update_rows();
+    update_rows(imageIndex);
 }
 
-function update_rows() {
+function update_rows(imageIndex) {
     if (!json["table_types"] || !Array.isArray(["table_types"])) {
         return;
     }
@@ -3509,7 +3567,7 @@ function update_rows() {
                     }
                 }
                 if (!matched) {
-                    var annotation = createManualAnnotation(0, 0, 0, 0, "");
+                    var annotation = createManualAnnotation(0, 0, 0, 0, "", imageIndex);
                     if (!annotation) {
                         continue;
                     }
@@ -3570,6 +3628,7 @@ function changeRightPanel(sizeOfRight) {
 }
 
 function set_table_types(){
+    console.log("set_table_types");
     var instance = json["instance"];
     if (instance) {
         // var table_select = document.createElement("option");
