@@ -33,9 +33,15 @@ var jsonParser = bodyParser.json({limit: '50mb'});
 var rootPath = 'F:/2018-01-11-betrand'; // for suuha
 var uploadPath = './mounts/share/uploads/'; // for suuha
 var outputPath = './mounts/output/'; // for suuha
+var authUrl = 'http://localhost:3000/login'; //for suuha
+var loginPageUrl = 'http://localhost:3000/#/logins?redirectUrl='; // for suuha
+
 // var rootPath = '/home/suuha'; // for sandbox
 // var uploadPath = '/mounts/share/uploads/'; // for sandbox
 // var outputPath = '/mounts/output/'; // for sandbox
+// var authUrl = 'http://localhost:3000/login'; //for sandbox
+// var loginPageUrl = 'http://localhost:3000/#/logins?redirectUrl='; // for sandbox
+
 
 const swaggerUi = require('swagger-ui-express');
 const swaggerDocument = require('./swagger.json');
@@ -52,7 +58,7 @@ app.use(session({
 
 function checkSignOn(cookie, cbSucc, cbErr) {
     var options = { method: 'GET',
-        url: 'http://localhost:3000/login',
+        url: authUrl,
         headers: {
             // 'Cache-Control': 'no-cache',
             Cookie: 'connect.sid=' + cookie + '; sid=' + cookie
@@ -85,7 +91,7 @@ app.use(function(req, res, next) {
     // var credentials = auth(req);
     // res.setHeader('Access-Control-Allow-Origin', '*');
     function signOn() {
-        res.redirect(`http://localhost:3000/#/logins?redirectUrl=${req.headers.host + req.originalUrl}`);
+        res.redirect(loginPageUrl + req.headers.host + req.originalUrl);
     }
     // console.log(req.cookies['sid']);
     checkSignOn(req.cookies['sid'], function() {
