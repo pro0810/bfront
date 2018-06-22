@@ -3594,8 +3594,27 @@ $("#instanceSelected").change(function() {
     generateTable();
 });
 
+function getCookie(cname) {
+    var name = cname + "=";
+    var decodedCookie = decodeURIComponent(document.cookie);
+    var ca = decodedCookie.split(';');
+    for(var i = 0; i <ca.length; i++) {
+        var c = ca[i];
+        while (c.charAt(0) == ' ') {
+            c = c.substring(1);
+        }
+        if (c.indexOf(name) == 0) {
+            return c.substring(name.length, c.length);
+        }
+    }
+    return "";
+}
+
 function loadImageJson(imageIndex) {
     return function() {
+        // debugger;
+        // console.log(document.cookie);
+        // console.log(getCookie('connect.sid'));
         if (this.readyState !== 4 || this.status !== 200) {
             return;
         }
@@ -3780,7 +3799,7 @@ function afterFirstLoad() {
         containment: "#draggable-containment"
     });
     $("#footer").css("margin-top", "50px");
-    document.dispatchEvent(new Event('post_afterFirstLoad'));
+    // document.dispatchEvent(new Event('post_afterFirstLoad'));
 }
 
 function startup() {

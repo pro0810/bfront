@@ -69,6 +69,5 @@ health.js
 package-lock.json
 redis.json
 swagger.json
-webhook.js
 .idea/
 # End of https://www.gitignore.io/api/node
