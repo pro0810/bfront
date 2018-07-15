@@ -126,6 +126,38 @@
                     <div style="position: relative; z-index: 1000">
                         <div id="choicebox" tabindex="0" class="draggable ui-widget-content" data-intro="For new lines, you can select the type of line. <br><br> Hover over the type of line to see which fields are included in that type of line. <br><br> Once you have selected the line type, you will go into edit mode. <br><br> In edit mode, you can use the text to populate the cells by clicking on the text. <br><br> HINT: if you need to concatenate text in a single cell, use SHIFT-click" data-step="5"></div>
                         <div id="barbox" tabindex="0" class="draggable ui-widget-content" data-intro="When editing the row information, you will see the different fields of the row in a bar such as this one. <br><br> You can cycle through them (TAB and Shift-TAB) and edit them as required. <br><br>Delete a row by using the trash bin icon on the right." data-step="3" data-disable-interaction="false"></div>
+                        <div id="settingbox" tabindex="0" class="draggable ui-widget-content">
+                            <div>
+                                <label for="setting_title">setting</label>
+                            </div>
+                            <div>
+                                <input type="radio" name="setting_choice" id="setting_annotation" checked>
+                                <label for="setting_annotation">annotation</label>
+                                <input type="radio" name="setting_choice" id="setting_tag">
+                                <label for="setting_tag">tag</label>
+                            </div>
+                            <div >
+                                <select name="setting_type" id="setting_type">
+
+                                </select>
+                            </div>
+                            <div style="margin-left: 10px;">
+                                <input type="checkbox" name="setting_mandatory" id="setting_mandatory">
+                                <label for="setting_mandatory">mandatory</label>
+                                <input type="checkbox" name="setting_multiple" id="setting_multiple">
+                                <label for="setting_multiple">multiple</label>
+                            </div>
+                            <div>
+                                <a class="button button-mini button-circle" id="setting-check" style="width: 50px;">
+                                    <i class="icon-checkmark"></i>
+                                </a>
+                                <a class="button button-mini button-circle" id="setting-cancel" style="width: 50px;">
+                                    <i class="icon-remove"></i>
+                                </a>
+                            </div>
+                        </div>
+                        <div id="tableflowbox" tabindex="0" class="draggable ui-widget-content">
+                        </div>
                     </div>
                     <div class="content-inner content-img">
                         <div id="images">
@@ -165,9 +197,12 @@
 <script type="text/javascript" src="/review/js/functions.js"></script>
 <script type="text/javascript" src="/review/js/external.js"></script>
 <script type="text/javascript" src="/review/js/annotorious/annotator.js"></script>
+<script type="text/javascript" src="/review/js/bootstrap-tagsinput.min.js"></script>
+
 <!-- Bootstrap Select Plugin -->
 <script type="text/javascript" src="/review/js/bs-select.js"></script>
 
 <link rel="stylesheet" href="/review/css/bs-select.css" type="text/css" />
+<link rel="stylesheet" href="/review/css/bootstrap-tagsinput.css" type="text/css"/>
 </body>
 </html>

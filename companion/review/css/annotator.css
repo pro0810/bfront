@@ -140,6 +140,7 @@ input {
   overflow: scroll;
   max-height: calc(100% - 160px);
 }
+
 #barbox {
   position: absolute;
   z-index: 1001;
@@ -149,6 +150,103 @@ input {
   background-color: #ffffff;
   border: 1px solid black;
   padding: 5px 0;
+}
+
+
+.cog-icon-in-editbox {
+  position: absolute;
+  right: 20px;
+  padding-top: 7px;
+  cursor: pointer;
+}
+
+#tableflowbox div > i {
+  right: 10px;
+}
+
+#tableflowbox .button-circle {
+  width: 20%;
+  margin: 0 3%;
+}
+
+#settingbox {
+  position: fixed;
+  left: calc(50% - 300px);
+  top: 50%;
+  z-index: 1001;
+  display: none;
+  background-color: #ffffff;
+  border: 1px solid black;
+  padding: 5px 0;
+  flex-direction: column;
+  overflow: scroll;
+  max-height: calc(100% - 160px);
+  width: 280px;
+}
+
+div.bootstrap-tagsinput {
+  width: 260px;
+}
+
+#setting_type {
+  margin: 10px 10px;
+  width: calc(100% - 20px);
+}
+
+#tableflowbox {
+  position: fixed;
+  left: calc(50% - 300px);
+  max-width: 600px;
+  top: calc(50% - 180px);
+  z-index: 1001;
+  display: none;
+  background-color: #ffffff;
+  border: 1px solid black;
+  border-right-width: 0px;
+  padding: 0px 0;
+  flex-direction: column;
+  overflow: scroll;
+  max-height: calc(100% - 160px);
+}
+
+#tableflowbox input {
+  border: none;
+  border-right: 1px solid black;
+  background: none;
+  margin-bottom: 0;
+  border-radius: unset;
+  padding-right: 30px;
+  text-overflow: ellipsis;
+}
+
+#tableflowbox > div:first-child > input {
+  text-align: center;
+  /*border: none;*/
+}
+
+.custom-require {
+  background-color: #e8747447 !important;
+}
+
+.in-cog {
+  padding-right: 30px !important;
+  text-overflow: ellipsis !important;
+}
+
+#tableflowbox > div {
+  display: inline-flex;
+  border-bottom: black 1px solid;
+}
+
+#tableflowbox > div:last-child {
+  border-bottom-width: 0px;
+  border-right: black 1px solid;
+  padding: 5px;
+  display: inline;
+}
+
+#tableflowbox > div:nth-child(3) > div {
+  position: relative;
 }
 
 #choicebox div {
@@ -162,6 +260,8 @@ input {
 }
 #choicebox input {
   margin: 0 5px 0px 0;
+  padding-right: 30px;
+  text-overflow: ellipsis;
 }
 
 #barbox > div {
@@ -198,7 +298,7 @@ input {
   padding: 4px;
   text-overflow: ellipsis;
   float: right;
-  padding-right: 10px;
+  padding-right: 20px;
 }
 
 #image-navigator-buttons ul {
@@ -339,14 +439,12 @@ input {
   text-align: center;
 }
 
-.icon-line-cross {
+.remove-icon-in-editbox {
   position: absolute;
-  right: 0px;
+  right: 5px;
   padding-top: 20px;
   cursor: pointer;
 }
-
-
 
 .table .entity-cell-success td { color: #3c763d; }
 

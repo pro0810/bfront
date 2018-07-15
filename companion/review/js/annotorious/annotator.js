@@ -18,7 +18,7 @@ var defaultHeader = ["Label", "Content", "Confidence"];
 var st_flag_arr = [];
 var drawAnnotation = false;
 var default_table_type = "Metadata";
-var select_label_style_arr = ["success", "warning", "default", "danger", "info"];
+var select_label_style_arr = ["success", "warning", "default", "danger", "info", "primary"];
 var clickedUnrecognized = [];
 var undoLimit = 10;
 var show_unrecognized_text = true;
@@ -29,6 +29,20 @@ var originalJsonTags;
 var originalPointers = [];
 var checkedCallback;
 var clickedPageRangeLabel;
+var tableTypeSelect = $("#instanceSelected");
+
+var settingBox = document.getElementById("settingbox");
+var settingChoiceAnnotation = document.getElementById("setting_annotation");
+var settingChoiceTag = document.getElementById("setting_tag");
+var settingType = document.getElementById("setting_type");
+var settingMandatory = document.getElementById("setting_mandatory");
+var settingMultiple = document.getElementById("setting_multiple");
+var tableFlowBox = document.getElementById("tableflowbox");
+var studioMode;
+var studioFormat;
+var studioFormatJson;
+var tempRowTypes = [];
+
 var keyCodes = {
     TAB: 9,
     ENTER: 13,
@@ -324,7 +338,22 @@ $("#annotator-save").click(function() {
             }
         }
     };
-    xhr.send(JSON.stringify({"pointers": pointers, "tags": json["tags"]}));
+    if (studioMode && studioFormat)
+        xhr.send(JSON.stringify(
+            {
+                saveData: {"pointers": pointers, "tags": json["tags"]},
+                formatData: {
+                    name: studioFormat,
+                    data: {
+                        table_types: json['table_types'],
+                        tag_types: json['tag_types'],
+                        labels: json['labels']
+                    }
+                }
+            }
+        ));
+    else
+        xhr.send(JSON.stringify({saveData: {"pointers": pointers, "tags": json["tags"]}}));
 });
 
 function toggle_table() {
@@ -396,7 +425,7 @@ function getLabels() {
         labels = [];
         for (var i in json["labels"][activeImage]) {
             var label = json["labels"][activeImage][i];
-            if (label instanceof String) {
+            if (typeof label === 'string') {
                 if (json['form']) {
                     labels.push({
                         "mandatory": true,
@@ -419,15 +448,15 @@ function getLabels() {
     } else if (json["labels"][activeImage] instanceof Array) {
         for (var i in json["labels"][activeImage]) {
             var label = json["labels"][activeImage][i];
-            if (label instanceof String) {
+            if (typeof label === 'string') {
                 if (json['form']) {
-                    labels.push({
+                    labels.add({
                         "mandatory": true,
                         "multiple": true,
                         "label": label
                     });
                 } else {
-                    labels.push({
+                    labels.add({
                         "mandatory": true,
                         "multiple": false,
                         "label": label
@@ -440,7 +469,7 @@ function getLabels() {
     } else {
         for (var labelIndex in json["labels"]) {
             if (json["labels"][labelIndex] instanceof Object) {
-                if (!json["labels"][labelIndex]["page"] || json["labels"][labelIndex]["page"] == activeImage) {
+                if (!json["labels"][labelIndex]["page"] || parseInt(json["labels"][labelIndex]["page"]) === activeImage) {
                     labels.add(json["labels"][labelIndex]);
                 }
             } else if (typeof json["labels"][labelIndex] === "string") {
@@ -463,25 +492,79 @@ function getLabels() {
     return Array.from(labels);
 }
 
+function getMetadataAvailableOptions() {
+    var result = ['-- select option --'];
+    var label;
+    for (var i in json['labels'][activeImage]) {
+        label = json['labels'][activeImage][i];
+        if (typeof label === 'string') {
+            result.push(label);
+        } else if (label instanceof Object && label['label']) {
+            result.push(label['label']);
+        }
+    }
+    for (var tagType in json['tag_types']) {
+        result.push(tagType);
+    }
+    return result;
+}
+
 function generateTableRowBlankTag(deleteCallback) {
     var row = document.createElement("tr");
     var rowLabel = document.createElement("td");
+    rowLabel.style.position = 'relative';
     var rowContent = document.createElement("td");
     var rowConfidence = document.createElement("td");
     var rowDelete = document.createElement("td");
-
     row.classList.add("table-tag");
     row.classList.add("active");
     rowLabel.classList.add("entity-row-label");
     rowContent.classList.add("entity-row-content");
+    if (studioMode) {
+        var labelInput = document.createElement("input");
+        labelInput.setAttribute("type", "text");
+        labelInput.setAttribute("placeholder", "label");
+        labelInput.classList.add("nomargin", 'in-cog');
+        labelInput.onkeydown = function(ev) {
+            ev.stopImmediatePropagation();
+            if (ev.keyCode === keyCodes.ENTER) {
+                if (labelInput.value) {
+                    createLabel(labelInput.value, true);
+                    generateTable();
+                }
+            }
+        };
+        customRequire(labelInput);
+        var cogIcon = document.createElement('i');
+        cogIcon.classList.add('icon-cog', 'cog-icon-in-editbox');
+        cogIcon.onclick = function (ev) {
+            ev.stopImmediatePropagation();
+            if (labelInput.value) {
+                drawSettings(labelInput.value);
+            } else {
+                labelInput.classList.add('custom-require');
+            }
+        };
+        rowLabel.appendChild(cogIcon);
+        rowLabel.appendChild(labelInput);
+    } else {
+        var labelInput = document.createElement("select");
+        var availableOptions = getMetadataAvailableOptions();
+        for (var i in availableOptions) {
+            var labelOption = document.createElement('option');
+            labelOption.textContent = availableOptions[i];
+            if (i === 0) {
+                labelOption.disabled = true;
+                labelOption.selected = true;
+            } else {
+                labelOption.value = availableOptions[i];
+            }
+            labelInput.appendChild(labelOption);
+        }
+        rowLabel.appendChild(labelInput);
+    }
 
-    var labelInput = document.createElement("input");
-    labelInput.setAttribute("type", "text");
-    labelInput.setAttribute("placeholder", "label");
-    labelInput.classList.add("nomargin");
-    rowLabel.appendChild(labelInput);
-
-    contentInput = document.createElement("input");
+    var contentInput = document.createElement("input");
     contentInput.setAttribute("type", "text");
     contentInput.setAttribute("placeholder", "content");
     contentInput.classList.add("nomargin");
@@ -499,19 +582,19 @@ function generateTableRowBlankTag(deleteCallback) {
 
     labelInput.onchange = contentInput.onchange = (function(labelInput, contentInput) {
         return function(event) {
-            var tr = event.target.parentElement.parentElement;
-            var firstTagIndex = document.querySelector("#entity-table .table-tag").rowIndex;
-            var thisRowIndex = tr.rowIndex - firstTagIndex;
+            // var tr = event.target.parentElement.parentElement;
+            // var firstTagIndex = document.querySelector("#entity-table .table-tag").rowIndex;
+            // var thisRowIndex = tr.rowIndex - firstTagIndex;
+            //
+            // json["tags"].length = Math.max(json["tags"].length, thisRowIndex + 1);
+            // if (!json["tags"][thisRowIndex]) {
+            //     json["tags"][thisRowIndex] = {
+            //         confidence: 100
+            //     };
+            // }
 
-            json["tags"].length = Math.max(json["tags"].length, thisRowIndex + 1);
-            if (!json["tags"][thisRowIndex]) {
-                json["tags"][thisRowIndex] = {
-                    confidence: 100
-                };
-            }
-
-            json["tags"][thisRowIndex]["label"] = labelInput.value;
-            json["tags"][thisRowIndex]["text"] = contentInput.value;
+            // json["tags"][thisRowIndex]["label"] = labelInput.value;
+            // json["tags"][thisRowIndex]["text"] = contentInput.value;
         }
     })(labelInput, contentInput);
     labelInput.onclick = contentInput.onclick = function(event) {
@@ -563,8 +646,8 @@ function get_table_type_index(table_type) {
 }
 
 function generateRowTable() {
-    var table_type_index = get_table_type_index($("#instanceSelected").selectpicker("val"));
-    if (table_type_index == undefined) {
+    var table_type_index = get_table_type_index(tableTypeSelect.selectpicker("val"));
+    if (table_type_index === undefined) {
         return;
     }
     generateTableHeader(json["table_types"][table_type_index]["columns"]);
@@ -572,13 +655,13 @@ function generateRowTable() {
         // pointerIndex = activeImage;
         for (var rowIndex in pointers[pointerIndex]["rows"]) {
             var rows = pointers[pointerIndex]["rows"][rowIndex];
-            if ((rows[0]["page"] === undefined || (Number.isInteger(rows[0]["page"]) && rows[0]["page"] == activeImage) || (Array.isArray(rows[0]["page"]) && rows[0]["page"].indexOf(activeImage) !== -1)) && rows[0]["type"] == json["table_types"][table_type_index]["type"]) {
+            if ((rows[0]["page"] === undefined || (Number.isInteger(rows[0]["page"]) && parseInt(rows[0]["page"]) === activeImage) || (Array.isArray(rows[0]["page"]) && rows[0]["page"].indexOf(activeImage) !== -1)) && rows[0]["type"] === json["table_types"][table_type_index]["type"]) {
                 var data = {};
                 var sorted_rows_by_column = [];
                 for (var i in json["table_types"][table_type_index]["columns"]) {
                     var matched = false;
                     for (var j in rows) {
-                        if (rows[j]["column"] == json["table_types"][table_type_index]["columns"][i]) {
+                        if (rows[j]["column"] === json["table_types"][table_type_index]["columns"][i]) {
                             data[rows[j]["column"]] = rows[j]["text"];
                             sorted_rows_by_column.push(rows[j]);
                             matched = true;
@@ -642,7 +725,7 @@ function clear_right_input() {
 }
 
 function convert_tag_row_editable(tag, rowTag, thumbnail) {
-    if (thumbnail == undefined){
+    if (thumbnail === undefined){
         thumbnail = false;
     }
     if ((!thumbnail && json["tag_types"] && json["tag_types"][tag["type"]] && Array.isArray(json["tag_types"][tag["type"]])) || (thumbnail && json["page_tags"])) {
@@ -661,7 +744,7 @@ function generateMetadataTable() {
         // pointerIndex = activeImage;
         for (var annotationIndex in pointers[pointerIndex]["annotations"]) {
             var annotation = pointers[pointerIndex]["annotations"][annotationIndex];
-            if (annotation === null || annotation === undefined || !(annotation["page"] == undefined || (Number.isInteger(annotation["page"]) && annotation["page"] == activeImage) || (Array.isArray(annotation["page"]) && annotation["page"].indexOf(activeImage) != -1))) {
+            if (annotation === null || annotation === undefined || !(annotation["page"] === undefined || (Number.isInteger(annotation["page"]) && annotation["page"] === activeImage) || (Array.isArray(annotation["page"]) && annotation["page"].indexOf(activeImage) !== -1))) {
                 continue;
             }
             // Dirty hack
@@ -699,12 +782,15 @@ function generateMetadataTable() {
                     drawBarBox(annotation);
                 }
             })(annotation, pointerIndex, annotationIndex);
-            labels.splice(labels.findIndex(function(label) {
+            var removeIndex = labels.findIndex(function(label) {
                 if (!label || !annotation) {
                     return false;
                 }
-                return label["label"] === annotation["label"]
-            }), 1);
+                return label["label"] === annotation["label"];
+            });
+            if (removeIndex !== -1) {
+                labels.splice(removeIndex, 1);
+            }
         }
     }
     for (var tagIndex in json["tags"]) {
@@ -712,7 +798,7 @@ function generateMetadataTable() {
         if (!tag) {
             continue;
         }
-        if (!(tag["page"] == undefined || (Number.isInteger(tag["page"]) && tag["page"] == activeImage) || (Array.isArray(tag["page"]) && tag["page"].indexOf(activeImage) != -1))) {
+        if (!(tag["page"] === undefined || (Number.isInteger(tag["page"]) && tag["page"] === activeImage) || (Array.isArray(tag["page"]) && tag["page"].indexOf(activeImage) !== -1))) {
             continue;
         }
         // Dirty hack
@@ -734,7 +820,7 @@ function generateMetadataTable() {
             tableRow.onclick = function(event) {
                 event.stopImmediatePropagation();
                 scroll_to_table_row(event.target);
-                convert_tag_row_editable(tag, editable_tag, tag["label"] == activeImage + 1);
+                convert_tag_row_editable(tag, editable_tag, tag["label"] === activeImage + 1);
                 if (editable_tag.hasChildNodes()) {
                     setTimeout(function() {
                         editable_tag.childNodes[0].focus();
@@ -742,12 +828,14 @@ function generateMetadataTable() {
                 }
             }
         })(tag, tagIndex);
-        labels.splice(labels.findIndex(function(label) {
+        var removeIndex = labels.findIndex(function(label) {
             if (!label || !tag) {
                 return false;
             }
             return label["label"] === tag["label"]
-        }), 1);
+        });
+        if (removeIndex !== -1)
+            labels.splice(removeIndex, 1);
     }
     if (json["tags"]) {
         (function() {
@@ -773,12 +861,14 @@ function generateMetadataTable() {
             "content": check["text"],
             "confidence": check["confidence"] + "%"
         });
-        labels.splice(labels.findIndex(function(label) {
+        var removeIndex = labels.findIndex(function(label) {
             if (!label || !check) {
                 return false;
             }
             return label["label"] === check["label"]
-        }), 1);
+        });
+        if (removeIndex !== -1)
+            labels.splice(removeIndex, 1);
     }
     for (var checkIndex in failedChecks) {
         var check = failedChecks[checkIndex];
@@ -787,12 +877,14 @@ function generateMetadataTable() {
             "content": check["text"],
             "confidence": check["confidence"] + "%"
         });
-        labels.splice(labels.findIndex(function(label) {
+        var removeIndex = labels.findIndex(function(label) {
             if (!label || !check) {
                 return false;
             }
             return label["label"] === check["label"]
-        }), 1);
+        });
+        if (removeIndex !== -1)
+            labels.splice(removeIndex, 1);
     }
     labels.forEach(function(label) {
         createTableRow(["entity-" + label["label"].replace(/[ ,\.]/g, "_"), "danger"], {
@@ -916,10 +1008,12 @@ function getTooltip(validType) {
     var tooltip;
     if (validType === 'int') {
         tooltip = 'Valid Format: Integer';
-    } else if (validType === 'number') {
+    } else if (validType === 'number' || validType === 'float') {
         tooltip = 'Valid Format: Float';
     } else if (validType === 'date') {
-        tooltip = 'Valid Format: Date'
+        tooltip = 'Valid Format: Date';
+    } else if (validType === 'string') {
+        tooltip = 'Valid Format: String';
     }
     return tooltip;
 }
@@ -928,7 +1022,7 @@ function validateFormFieldType(validType, text) {
     var checkResult;
     if (validType === 'int') {
         checkResult = parseInt(text) == text;
-    } else if (validType === 'number') {
+    } else if (validType === 'number' || validType === 'float') {
         checkResult = parseFloat(text) == text;
     } else if (validType === 'date') {
         checkResult = text.match(/^(\d{2}){1}(\/\d{2})?(\/\d{4})?$/);
@@ -1307,7 +1401,6 @@ function drawFormTable() {
             }
         }
     }
-
 }
 
 function generateFormTable() {
@@ -1320,7 +1413,7 @@ function generateTable() {
     console.log('generate_table');
     if (json['form'] && json['form']['sections'] && Array.isArray(json['form']['sections']) && json['form']['sections'].length) {
         generateFormTable();
-    } else if ($("#instanceSelected").selectpicker("val") != default_table_type) {
+    } else if (tableTypeSelect.selectpicker("val") !== default_table_type) {
         generateRowTable();
     } else {
         generateMetadataTable();
@@ -1645,6 +1738,13 @@ var firstError = true;
 var lastActiveField = {};
 var lastChoiceField = {};
 
+function resetSelected() {
+    pointers[activeImage]["annotations"].pop();
+    clearClickedUnrecognized();
+    clearAnnotations();
+    loadAnnotations();
+}
+
 function hideChoiceBox(selected) {
     if (choiceBox.hasChildNodes()) {
         // pointers[activeImage]["annotations"].pop();
@@ -1654,10 +1754,7 @@ function hideChoiceBox(selected) {
         choiceBox.style.display = "none";
         choiceBox.style = null;
         if (!selected) {
-            pointers[activeImage]["annotations"].pop();
-            clearClickedUnrecognized();
-            clearAnnotations();
-            loadAnnotations();
+            resetSelected();
         }
     }
 }
@@ -1678,7 +1775,6 @@ function hideBarBox() {
     while (barBox.hasChildNodes()) {
         barBox.removeChild(barBox.firstChild);
     }
-
     barBox.style.display = "none";
     // barBox.style = null;
     lastActiveField = {};
@@ -1806,7 +1902,7 @@ function drawBarCell(annotation, focus) {
     fieldInput.setAttribute("placeholder", annotation["label"]);
     fieldInput.setAttribute("value", annotation["text"]);
     var deleteIconTag = document.createElement("i");
-    deleteIconTag.classList.add("remove-label", "icon-line-cross");
+    deleteIconTag.classList.add("remove-label", "icon-line-cross", "remove-icon-in-editbox");
     fieldDiv.appendChild(deleteIconTag);
     fieldDiv.appendChild(fieldInput);
     deleteIconTag.onclick = (function(annotation, fieldInput) {
@@ -1990,6 +2086,7 @@ function update_annotation_to_row(annotation, typeIndex) {
     annotation["row_to_line"] = annotation["lineIndex"];
     annotation["index"] = 0;
     annotation["type"] = json["table_types"][typeIndex]["type"];
+    annotation['fieldType'] = json['table_types'][typeIndex]['valueType'];
     annotation["prevtext"] = undefined;
     annotation["page"] = activeImage;
     delete annotation["annotationIndex"];
@@ -2124,6 +2221,13 @@ $(document).on("keydown", function(event) {
     if (event.ctrlKey && event.key === 'z') {
         loadFromTimeMachine();
     }
+    if (event.keyCode === keyCodes.TAB && event.target && event.target.className === 'tableflowheader') {
+        if (event.shiftKey) {
+            reduceTableFlow();
+        } else {
+            extendTableFlow();
+        }
+    }
 })
 
 function getAnnotationFromLabel(annotation) {
@@ -2135,11 +2239,514 @@ function getAnnotationFromLabel(annotation) {
             }
         }
     }
+}
+
+function changeSettingTypeOptions(optionList) {
+    while (settingType.hasChildNodes()) {
+        settingType.removeChild(settingType.firstChild);
+    }
+    if (optionList) {
+        settingType.removeAttribute('multiple');
+        settingType.removeAttribute('data-role');
+        $(settingType).tagsinput('removeAll');
+        $(settingType).tagsinput('destroy');
+        optionList.unshift(' -- select option -- ');
+        for (var i in optionList) {
+            var optionElem = document.createElement('option');
+            optionElem.text = optionList[i];
+            if (parseInt(i) === 0) {
+                optionElem.selected = true;
+                optionElem.disabled = true;
+                optionElem.value = 'string';
+            } else {
+                optionElem.value= optionList[i];
+            }
+            settingType.appendChild(optionElem);
+        }
+    } else {
+        settingType.setAttribute('multiple', 'true');
+        settingType.setAttribute('data-role', 'tagsinput');
+        $(settingType).tagsinput({
+            maxTags: 30,
+            trimValue: true
+        });
+        $(settingType).tagsinput('refresh');
+        $(settingType).tagsinput('focus');
+    }
+}
+
+settingChoiceAnnotation.onchange = function() {
+    changeSettingTypeOptions(['date', 'integer', 'float', 'string']);
+};
+
+settingChoiceTag.onchange = function() {
+    changeSettingTypeOptions();
+};
+
+settingBox.onclick = (function(event) {
+    event.stopImmediatePropagation();
+});
+
+settingBox.onkeydown = function(ev) {
+    ev.stopImmediatePropagation();
+};
+
+function drawingFromCheckBox(annotation) {
+    var noRedraw;
+    if (annotation["unrecognized"]) {
+        updateClickedUnrecognized(annotation);
+        delete annotation["unrecognized"];
+        annotation.fixBox();
+        noRedraw = true;
+    }
+    return noRedraw;
 
 }
 
+function hideSettings(annotation) {
+    settingBox.style.display = "none";
+    if (Number.isInteger(annotation)) {
+        tempRowTypes[annotation] = settingType.value;
+    } else if (annotation instanceof Object) {
+        createLabel(annotation['label']);
+        annotation['fieldType'] = getSetting('type');
+        var noRedraw = drawingFromCheckBox(annotation);
+        drawBarBox(annotation, noRedraw);
+        generateTable();
+    } else if (typeof annotation === 'string'){
+        createLabel(annotation);
+        generateTable();
+    } else {
+        generateTable();
+    }
+}
+
+function drawSettings(annotation) {
+    settingBox.style.display = "flex";
+    changeSettingTypeOptions(['date', 'integer', 'float', 'string']);
+    if (Number.isInteger(annotation)) {
+        settingChoiceAnnotation.parentNode.style.display = "none";
+        settingMultiple.parentNode.style.display = "none";
+    } else {
+        settingChoiceAnnotation.parentNode.style.display = "block";
+        settingMultiple.parentNode.style.display = "block";
+    }
+    settingChoiceAnnotation.checked = true;
+    settingMandatory.checked = false;
+    settingMultiple.checked = false;
+    document.getElementById('setting-check').onclick = function(ev) {
+        ev.stopImmediatePropagation();
+        hideSettings(annotation);
+    };
+    document.getElementById('setting-cancel').onclick = function(ev) {
+        ev.stopImmediatePropagation();
+        if (annotation instanceof Object) {
+            resetSelected();
+        }
+        hideSettings();
+    };
+}
+
+function customRequire(elem) {
+    elem.onkeypress = function(ev) {
+        if (ev.keyCode !== keyCodes.ENTER && ev.keyCode !== keyCodes.TAB) {
+            elem.classList.remove('custom-require');
+        }
+    }
+}
+
+tableFlowBox.onclick = (function(ev) {
+    ev.stopImmediatePropagation();
+});
+
+tableFlowBox.onkeydown = (function(ev) {
+    if (ev.keyCode !== keyCodes.TAB)
+        ev.stopImmediatePropagation();
+});
+
+function extendTableFlow() {
+    tempRowTypes.push('string');
+    var firstDiv = tableFlowBox.children[1];
+    var secondDiv = tableFlowBox.children[2];
+    firstDiv.lastElementChild.classList.remove('tableflowheader');
+    var newHeader = document.createElement('input');
+    newHeader.type = 'text';
+    newHeader.classList.add('tableflowheader');
+    customRequire(newHeader);
+    firstDiv.appendChild(newHeader);
+
+    var newCellDiv = document.createElement('div');
+    var newCellCog = document.createElement('i');
+    newCellCog.classList.add('icon-cog', 'cog-icon-in-editbox');
+    newCellCog.onclick = function(ev) {
+        ev.stopImmediatePropagation();
+        if (newHeader.value) {
+            drawSettings(tempRowTypes.length - 1);
+        } else {
+            newHeader.classList.add('custom-require');
+        }
+    };
+    var newCellInput = document.createElement('input');
+    newCellInput.type = 'text';
+    newCellDiv.appendChild(newCellCog);
+    newCellDiv.appendChild(newCellInput);
+    secondDiv.appendChild(newCellDiv);
+}
+
+function reduceTableFlow() {
+    tempRowTypes.pop();
+    var firstDiv = tableFlowBox.children[1];
+    var secondDiv = tableFlowBox.children[2];
+    if (firstDiv.childElementCount === 1) return;
+    firstDiv.removeChild(firstDiv.lastElementChild);
+    firstDiv.lastElementChild.classList.add('tableflowheader');
+    secondDiv.removeChild(secondDiv.lastElementChild);
+}
+
+function updateTableFlow(annotation) {
+    var firstDiv = document.createElement('div');
+    var newHeader = document.createElement('input');
+    newHeader.type = 'text';
+    newHeader.classList.add('tableflowheader');
+    customRequire(newHeader);
+    firstDiv.appendChild(newHeader);
+    var secondDiv = document.createElement('div');
+    var secondSubDiv = document.createElement('div');
+    var cogIcon = document.createElement('i');
+    cogIcon.classList.add('icon-cog', 'cog-icon-in-editbox');
+    cogIcon.onclick = function (ev) {
+        ev.stopImmediatePropagation();
+        if (newHeader.value) {
+            drawSettings(0);
+        } else {
+            newHeader.classList.add('custom-require');
+        }
+    };
+
+    var newCell = document.createElement('input');
+    newCell.type = 'text';
+    customRequire(newCell);
+    secondSubDiv.appendChild(cogIcon);
+    secondSubDiv.appendChild(newCell);
+    secondDiv.appendChild(secondSubDiv);
+    var thirdDiv = document.createElement('div');
+    for (var i = 0; i < 2; i++) {
+        var checkBtn = document.createElement('a');
+        checkBtn.classList.add('button', 'button-mini', 'button-circle');
+        checkBtn.onclick = (function(index) {
+            return function(ev) {
+                ev.stopImmediatePropagation();
+                if (index) {
+                    hideTableFlow();
+                    if (annotation)
+                        resetSelected();
+                    return;
+                }
+                var emptyValueElems = [];
+                emptyValueElems = checkEmptyTableFlow(emptyValueElems, firstDiv, true);
+                emptyValueElems = checkEmptyTableFlow(emptyValueElems, secondDiv, false);
+                if (! emptyValueElems.length) {
+                    hideTableFlow(annotation);
+                } else {
+                    for (var j in emptyValueElems) {
+                        emptyValueElems[j].classList.add('custom-require');
+                    }
+                }
+            }
+        })(i);
+        var checkIcon = document.createElement('i');
+        if (i) checkIcon.classList.add('icon-remove');
+        else checkIcon.classList.add('icon-checkmark');
+        checkBtn.appendChild(checkIcon);
+        thirdDiv.appendChild(checkBtn);
+    }
+    tableFlowBox.appendChild(firstDiv);
+    tableFlowBox.appendChild(secondDiv);
+    tableFlowBox.appendChild(thirdDiv);
+    newHeader.focus();
+}
+
+
+function drawTableFlow(annotation) {
+    hideTableFlow();
+    tempRowTypes.push('string');
+    tableFlowBox.style.display = "flex";
+    var zeroDiv = document.createElement('div');
+    var tableTypeInput = document.createElement('input');
+    tableTypeInput.type = 'text';
+    tableTypeInput.placeholder = 'Table type';
+    zeroDiv.appendChild(tableTypeInput);
+    tableFlowBox.appendChild(zeroDiv);
+    tableTypeInput.focus();
+    customRequire(tableTypeInput);
+    var tempDiv = document.createElement('div');
+    tableFlowBox.appendChild(tempDiv);
+    for (var i = 0; i < 2; i++) {
+        var checkBtn = document.createElement('a');
+        checkBtn.classList.add('button', 'button-mini', 'button-circle');
+        checkBtn.onclick = (function(index) {
+            return function(ev) {
+                ev.stopImmediatePropagation();
+                if (index) {
+                    hideTableFlow();
+                    if (annotation)
+                        resetSelected();
+                } else {
+                    if (tableTypeInput.value) {
+                        tableFlowBox.removeChild(tempDiv);
+                        updateTableFlow(annotation);
+                    } else {
+                        tableTypeInput.classList.add('custom-require');
+                    }
+                }
+            }
+        })(i);
+        var checkIcon = document.createElement('i');
+        if (i) checkIcon.classList.add('icon-remove');
+        else checkIcon.classList.add('icon-checkmark');
+        checkBtn.appendChild(checkIcon);
+        tempDiv.appendChild(checkBtn);
+    }
+
+    tableTypeInput.onkeydown = function(ev) {
+        ev.stopImmediatePropagation();
+        // tableTypeInput.readOnly = true;
+        if (ev.keyCode === keyCodes.ENTER) {
+            if (tableTypeInput.value) {
+                tableFlowBox.removeChild(tempDiv);
+                updateTableFlow(annotation);
+            } else {
+                tableTypeInput.classList.add('custom-require');
+            }
+        }
+    };
+}
+
+function checkEmptyTableFlow(emptyValueElems, firstDiv, firstFlag) {
+    var firstInputElem;
+    var secondInputElem;
+    for (var j = 0; j < firstDiv.children.length; j++) {
+        if (firstFlag)
+            firstInputElem = firstDiv.children[j];
+        else
+            firstInputElem = firstDiv.children[j].children[1];
+
+        if (! firstInputElem.value) {
+            emptyValueElems.push(firstInputElem);
+        } else {
+            for (var k = j + 1; k < firstDiv.children.length; k++) {
+                if (firstFlag)
+                    secondInputElem = firstDiv.children[k];
+                else
+                    secondInputElem = firstDiv.children[k].children[1];
+                if (firstInputElem.value === secondInputElem.value) {
+                    emptyValueElems.push(secondInputElem);
+                }
+            }
+        }
+    }
+    return emptyValueElems;
+}
+
+function createTableType() {
+    var newType = tableFlowBox.children[0].children[0].value;
+    var newLabel = newType;
+    var newColumns = [];
+    var cellContainer = tableFlowBox.children[1].children;
+    for (var i = 0; i < cellContainer.length; i++) {
+        newColumns.push(cellContainer[i].value)
+    }
+    var newLabels = [];
+    var labelContainer = tableFlowBox.children[2].children;
+    for (var i = 0; i < labelContainer.length; i++) {
+        newLabels.push(labelContainer[i].children[1].value);
+    }
+    var newPage = activeImage;
+    json['table_types'].push({
+        type: newType,
+        label: newLabel,
+        columns: newColumns,
+        labels: newLabels,
+        page: newPage,
+        valueTypes: tempRowTypes
+    });
+    addTableTypeSelectOption(tableTypeSelect.children().length - 1, newLabel, newType);
+    $(".selectpicker").selectpicker("refresh");
+}
+
+function addTableTypeSelectOption(count, label, type) {
+    if (count > 5) count -= 5;
+    var table_select = document.createElement("option");
+    table_select.setAttribute("data-content", '<span class="label label-' + select_label_style_arr[count] + '">' + label + '</span>');
+    table_select.setAttribute("value", type);
+    tableTypeSelect.append(table_select);
+}
+
+function hideTableFlow(annotation) {
+    if (annotation) {
+        createTableType();
+        if (annotation instanceof Object) {
+            var noRedraw = drawingFromCheckBox(annotation);
+            update_annotation_to_row(annotation, json["table_types"].length - 1);
+            drawBarBox(annotation, noRedraw);
+        }
+    }
+    tableFlowBox.style.display = "none";
+    hideSettings();
+    while (tableFlowBox.hasChildNodes()) {
+        tableFlowBox.removeChild(tableFlowBox.firstChild);
+    }
+}
+
+function getSetting(item) {
+    if (item === 'mandatory') {
+        if (settingMandatory.value === 'on') return true;
+        else return false;
+    } else if (item === 'multiple') {
+        if (settingMultiple.value === 'on') return true;
+        else return false;
+    } else if (item === 'type') {
+        return settingType.value;
+    } else if (item === 'taglist') {
+        return $(settingType).val();
+    } else if (item === 'option') {
+        if (settingChoiceAnnotation.checked) {
+            return 'annotation';
+        } else {
+            return 'tag';
+        }
+    }
+}
+
+function createLabel(label, defaultFlag) {
+    var settingOption = getSetting('option');
+    if (settingOption === 'tag') {
+        if (!(json['tag_types'] instanceof Object))
+            json['tag_types'] = {};
+        json['tag_types'][label] = getSetting('taglist');
+    } else {
+        if (!(json['labels'][activeImage] instanceof Array)) {
+            json['labels'][activeImage] = [];
+        }
+        if (defaultFlag) {
+            json['labels'][activeImage].push({
+                label: label,
+                mandatory: false,
+                multiple: false,
+                type: 'string'
+            });
+        } else {
+            json['labels'][activeImage].push({
+                label: label,
+                mandatory: getSetting('mandatory'),
+                multiple: getSetting('multiple'),
+                type: getSetting('type')
+            });
+        }
+    }
+}
+
+function showStudioCheckBox(annotation, choiceDiv) {
+    var wrapperList = document.createElement("ul");
+    wrapperList.classList.add('text-left', 'list-unstyled');
+    for (var i = 0; i < 2; i++) {
+        var wrapperLi = document.createElement("li");
+        var choiceInput = document.createElement("input");
+        choiceInput.setAttribute("type", "radio");
+        choiceInput.setAttribute("name", "studio");
+        var labelForChoice = document.createElement("label");
+
+        if (i === 0) {
+            labelForChoice.textContent = 'annotation';
+            choiceInput.id = 'studio-annotation-check';
+            labelForChoice.htmlFor = 'studio-annotation-check';
+        } else {
+            labelForChoice.textContent = 'row';
+            choiceInput.id = 'studio-row-check';
+            labelForChoice.htmlFor = 'studio-row-check';
+        }
+
+        choiceInput.onchange = (function(ev) {
+            ev.stopImmediatePropagation();
+            var labelText = ev.target.nextElementSibling.textContent;
+            choiceDiv.removeChild(ev.target.parentNode.parentNode);
+            if (labelText === "annotation") {
+                var otherTextInput = document.createElement("input");
+                otherTextInput.setAttribute("type", "text");
+                var cogElem = document.createElement("i");
+                cogElem.classList.add('icon-cog', 'cog-icon-in-editbox');
+                choiceDiv.appendChild(cogElem);
+                otherTextInput.setAttribute("placeholder", "label");
+                customRequire(otherTextInput);
+                otherTextInput.onkeydown = function(event) {
+                    // event.preventDefault();
+                    event.stopImmediatePropagation();
+                    if (event.keyCode === keyCodes.ENTER) {
+                        event.preventDefault();
+                        if (event.target.value) {
+                            annotation["label"] = event.target.value;
+                            annotation['fieldType'] = 'string';
+                            createLabel(annotation['label'], true);
+                            hideChoiceBox(true);
+                            var noRedraw = drawingFromCheckBox(annotation);
+                            drawBarBox(annotation, noRedraw);
+                            generateTable();
+                        } else {
+                            otherTextInput.classList.add('custom-require');
+                        }
+                    }
+                };
+
+                cogElem.onclick = function(event) {
+                    event.stopImmediatePropagation();
+                    event.preventDefault();
+                    if (otherTextInput.value) {
+                        annotation["label"] = otherTextInput.value;
+                        hideChoiceBox(true);
+                        drawSettings(annotation);
+                    } else {
+                        otherTextInput.classList.add('custom-require');
+                    }
+                };
+                choiceDiv.appendChild(otherTextInput);
+                otherTextInput.focus();
+            } else {
+                // otherTextInput.setAttribute("placeholder", "table type");
+                // otherTextInput.onkeydown = function(event) {
+                //     // event.preventDefault();
+                //     event.stopImmediatePropagation();
+                //     if (event.keyCode === keyCodes.ENTER) {
+                //         event.preventDefault();
+                //         annotation["label"] = event.target.value;
+                hideChoiceBox(true);
+                drawTableFlow(annotation);
+                        // annotation["label"] = event.target.value;
+                        // var noRedraw;
+                        // if (annotation["unrecognized"]) {
+                        //     updateClickedUnrecognized(annotation);
+                        //     delete annotation["unrecognized"];
+                        //     annotation.fixBox();
+                        //     noRedraw = true;
+                        // }
+                        // hideChoiceBox(true);
+                        // drawBarBox(annotation, noRedraw);
+                        // generateTable();
+                //     }
+                // };
+            }
+
+        });
+         
+        wrapperLi.appendChild(choiceInput);
+        wrapperLi.appendChild(labelForChoice);
+        wrapperList.appendChild(wrapperLi);
+    }
+    choiceDiv.appendChild(wrapperList);
+}
+
+
 function drawTypeChoiceRow (annotation, label, type, choiceNum) {
-    if (type == "label") {
+    if (type === "label") {
         var annotations = getActiveAnnotations();
     }
     var choiceDiv = document.createElement("div");
@@ -2151,7 +2758,7 @@ function drawTypeChoiceRow (annotation, label, type, choiceNum) {
     choiceInput.id = "choice_" + label["label"].replace(/[ ,\.]/g, "_");
     labelElement.textContent = escapeHtml(choiceNum + ". " + label["label"]);
     labelElement.setAttribute("for", "choice_" + label["label"].replace(/[ ,\.]/g, "_"));
-    if (type == "label" && label["label"] in annotations && !label["multiple"]) {
+    if (type === "label" && label["label"] in annotations && !label["multiple"]) {
         choiceInput.disabled = true;
         labelElement.style["text-decoration"] = "line-through";
         labelElement.style["color"] = "#dddddd";
@@ -2162,30 +2769,8 @@ function drawTypeChoiceRow (annotation, label, type, choiceNum) {
     choiceInput.onchange = (function(annotation) {
         return function(event) {
             event.stopImmediatePropagation();
-            if (type == "other") {
-                var otherTextInput = document.createElement("input");
-                otherTextInput.setAttribute("type", "text");
-                otherTextInput.setAttribute("placeholder", "label");
-                otherTextInput.onkeydown = function(event) {
-                    // event.preventDefault();
-                    event.stopImmediatePropagation();
-                    if (event.keyCode === 13) {
-                        event.preventDefault();
-                        annotation["label"] = event.target.value;
-                        var noRedraw;
-                        if (annotation["unrecognized"]) {
-                            updateClickedUnrecognized(annotation);
-                            delete annotation["unrecognized"];
-                            annotation.fixBox();
-                            noRedraw = true;
-                        }
-                        hideChoiceBox(true);
-                        drawBarBox(annotation, noRedraw);
-                        generateTable();
-                    }
-                }
-                choiceDiv.appendChild(otherTextInput);
-                otherTextInput.focus();
+            if (type === "new") {
+                showStudioCheckBox(annotation, choiceDiv);
             } else {
                 var noRedraw;
                 if (annotation["unrecognized"]) {
@@ -2200,14 +2785,15 @@ function drawTypeChoiceRow (annotation, label, type, choiceNum) {
                     getAnnotationFromLabel(annotation);
                     // originalAnnotation = annotation;
                 } else {
-                    if (type == "label") {
+                    if (type === "label") {
                         annotation["label"] = event.target.value;
-                    } else if (type == "line") {
+                    } else if (type === "line") {
                         update_annotation_to_row(annotation, json["table_types"].indexOf(label));
                     }
                 }
                 hideChoiceBox(true);
                 drawBarBox(annotation, noRedraw);
+                generateTable();
             }
         }
     })(annotation);
@@ -2324,18 +2910,21 @@ function updateClickedUnrecognized(annotation) {
     });
 }
 
+function getParameterByName(name, url) {
+    if (!url) url = window.location.href;
+    name = name.replace(/[\[\]]/g, '\\$&');
+    var regex = new RegExp('[?&]' + name + '(=([^&#]*)|&|#|$)'),
+        results = regex.exec(url);
+    if (!results) return null;
+    if (!results[2]) return '';
+    return decodeURIComponent(results[2].replace(/\+/g, ' '));
+}
+
 
 function drawTypeChoice(annotation) {
     // hideBarBox();
     hideChoiceBox();
-
     var choiceNum = 0;
-    if (annotation["unrecognized"]) {
-        // clickedUnrecognized = [];
-        // updateClickedUnrecognized(annotation);
-        // addRowActive(annotation);
-    }
-
     annotation.activateBox();
     lastChoiceField = annotation;
     choiceBox.style.visibility = "collapse";
@@ -2350,14 +2939,14 @@ function drawTypeChoice(annotation) {
         choiceNum ++;
     }
     for (var tableIndex in json["table_types"]) {
-        if (!json["table_types"][tableIndex] || !json["table_types"][tableIndex]["page"] || json["table_types"][tableIndex]["page"] != activeImage) {
+        if (!json["table_types"][tableIndex] || parseInt(json["table_types"][tableIndex]["page"]) !== activeImage) {
             continue;
         }
         drawTypeChoiceRow(annotation, json["table_types"][tableIndex], "line", choiceNumLists[choiceNum]);
         choiceNum ++;
     }
-    if (json["noOtherLabel"] === undefined || json["noOtherLabel"] === false) {
-        drawTypeChoiceRow(annotation, {label: "other"}, "other", choiceNumLists[choiceNum]);
+    if ((json["noOtherLabel"] === undefined || json["noOtherLabel"] === false) && studioMode) {
+        drawTypeChoiceRow(annotation, {label: "new"}, "new", choiceNumLists[choiceNum]);
     }
 
     var trashDiv = document.createElement("div");
@@ -2510,6 +3099,20 @@ function scroll_to_table_row(element) {
     }, 100, null);
 }
 
+function updateFieldTypeForAnnotation(annotation) {
+    var labels = getLabels();
+    for (var i in labels) {
+        if (labels[i]['label'] === annotation['label']) {
+            if (labels[i]['type']) {
+                annotation['fieldType'] = labels[i]['type'];
+            } else {
+                annotation['fieldType'] = 'string';
+            }
+            return;
+        }
+    }
+}
+
 function drawBarBox(annotation, noRedraw) {
     if (!annotation || startedDragging) {
         startedDragging = false;
@@ -2546,13 +3149,13 @@ function drawBarBox(annotation, noRedraw) {
         hideBarBox();
     }
     clear_right_input();
-    if (annotation["type"] != $("#instanceSelected").selectpicker("val") && !json['form']) {
+    if (annotation["type"] !== tableTypeSelect.selectpicker("val") && !json['form']) {
         if (annotation["type"]) {
-            $("#instanceSelected").selectpicker("val", annotation["type"]);
+            tableTypeSelect.selectpicker("val", annotation["type"]);
             generateTable();
         } else {
-            if ($("#instanceSelected").selectpicker("val") != default_table_type) {
-                $("#instanceSelected").selectpicker("val", default_table_type);
+            if (tableTypeSelect.selectpicker("val") !== default_table_type) {
+                tableTypeSelect.selectpicker("val", default_table_type);
                 generateTable();
             }
         }
@@ -3497,6 +4100,7 @@ function setupImage(imageIndex) {
         var annotation = json["annotations"][annotationIndex];
         if (makeAnnotation(imageIndex, annotation)) {
             annotation["annotationIndex"] = annotations.length;
+            updateFieldTypeForAnnotation(annotation);
             annotations.push(annotation);
         }
     }
@@ -3581,6 +4185,7 @@ function update_rows(imageIndex) {
                     annotation["lineIndex"] = annotation["row_to_line"];
                     annotation["index"] = 0;
                     annotation["type"] = json["table_types"][table_type_index]["type"];
+                    annotation['fieldType'] = json['table_types'][table_type_index]['valueType'] ? json['table_types'][table_type_index]['valueType'] : 'string';
                     annotation["prevtext"] = undefined;
                     rows.splice(i, 0, annotation);
                 }
@@ -3589,9 +4194,13 @@ function update_rows(imageIndex) {
     }
 }
 
-
-$("#instanceSelected").change(function() {
-    generateTable();
+tableTypeSelect.change(function(ev) {
+    if (tableTypeSelect.selectpicker("val") === 'New' && activeImage !== -1) {
+        tableTypeSelect.selectpicker("val", default_table_type);
+        drawTableFlow('New');
+    } else {
+        generateTable();
+    }
 });
 
 function getCookie(cname) {
@@ -3600,10 +4209,10 @@ function getCookie(cname) {
     var ca = decodedCookie.split(';');
     for(var i = 0; i <ca.length; i++) {
         var c = ca[i];
-        while (c.charAt(0) == ' ') {
+        while (c.charAt(0) === ' ') {
             c = c.substring(1);
         }
-        if (c.indexOf(name) == 0) {
+        if (c.indexOf(name) === 0) {
             return c.substring(name.length, c.length);
         }
     }
@@ -3652,27 +4261,21 @@ function set_table_types(){
     console.log("set_table_types");
     var instance = json["instance"];
     if (instance) {
-        // var table_select = document.createElement("option");
-        // table_select.setAttribute("data-content", `<span class="label label-primary">${default_table_type}</span>`);
-        // table_select.setAttribute("value", default_table_type);
-        // $("#instanceSelected").append(table_select);
-        $("#instanceSelected").children("option:not(:first)").remove();
+        tableTypeSelect.children("option:not(:first)").remove();
         var count = 0;
+        // var table_select;
         for (var i in json["table_types"]) {
             if (!json["table_types"][i] || json["table_types"][i]["type"] === default_table_type) {
                 continue;
             }
-            if (!(json["table_types"][i]["page"] == undefined || (Number.isInteger(json["table_types"][i]["page"]) && json["table_types"][i]["page"] == activeImage) || (Array.isArray(json["table_types"][i]["page"]) && json["table_types"][i]["page"].indexOf(activeImage) != -1)))
+            if (!(json["table_types"][i]["page"] === undefined || (Number.isInteger(json["table_types"][i]["page"]) && json["table_types"][i]["page"] === activeImage) || (Array.isArray(json["table_types"][i]["page"]) && json["table_types"][i]["page"].indexOf(activeImage) !== -1)))
                 continue;
-            var table_select = document.createElement("option");
-            table_select.setAttribute("data-content", '<span class="label label-' + select_label_style_arr[count] + '">' + json["table_types"][i]["label"] + '</span>');
-            // table_select.setAttribute("data-content", `<span class="label label-${select_label_style_arr[count]}">${json["table_types"][i]["label"]}</span>`);
-            table_select.setAttribute("value", json["table_types"][i]["type"]);
-            $("#instanceSelected").append(table_select);
+            addTableTypeSelectOption(count, json["table_types"][i]["label"], json["table_types"][i]["type"]);
             count += 1;
         }
+        addTableTypeSelectOption(count, 'New', 'New');
         $(".selectpicker").selectpicker("refresh");
-        $("#instanceSelected").selectpicker("val", default_table_type);
+        tableTypeSelect.selectpicker("val", default_table_type);
         $("#instanceType").val(instance);
     }
 }
@@ -3683,6 +4286,11 @@ function loadInputJson() {
             return;
         }
         json = JSON.parse(this.responseText);
+        if (studioMode && studioFormatJson) {
+            json['tag_types'] = studioFormatJson['tag_types'];
+            json['labels'] = studioFormatJson['labels'];
+            json['table_types'] = studioFormatJson['table_types'];
+        }
         originalJsonTags = json["tags"];
         if ("ready" in json && !json["ready"]) {
             showModalPopup("Please wait. We are processing your request...");
@@ -3694,7 +4302,7 @@ function loadInputJson() {
             $("#page-tracker").text((1 + activeImage) + " / " + json["pictures"].length);
         else
             $("#page-tracker").text((activeImage) + " / " + (json["pictures"].length - 1));
-        if (json["show_unrecognized_text"] != undefined) {
+        if (json["show_unrecognized_text"] !== undefined) {
             show_unrecognized_text = json["show_unrecognized_text"];
         }
         if (Array.isArray(json["show_table"])) {
@@ -3705,7 +4313,7 @@ function loadInputJson() {
             st_flag_arr.push(json["show_table"]);
         }
 
-        if (st_flag_arr[0] != undefined && st_flag_arr[0] === false) {
+        if (st_flag_arr[0] !== undefined && st_flag_arr[0] === false) {
             toggle_table();
         }
         set_table_types();
@@ -3748,7 +4356,7 @@ function loadInputJson() {
                     saved_json = JSON.parse(this.responseText);
                     if (saved_json["pointers"]){
                         pointers = saved_json["pointers"];
-                    } else if (saved_json != {}){
+                    } else if (saved_json !== {}){
                         pointers = saved_json;
                     }
                     if (saved_json["tags"]){
@@ -3830,14 +4438,58 @@ function findGetParameter(parameterName) {
     return result;
 }
 
+function getStudioFormatData() {
+    return new Promise(function(resolve) {
+        var xhttp;
+        if (window.XMLHttpRequest) {
+            // code for modern browsers
+            xhttp = new XMLHttpRequest();
+        } else {
+            // code for old IE browsers
+            xhttp = new ActiveXObject("Microsoft.XMLHTTP");
+        }
+        xhttp.open("GET", "/review/studio-format/" + studioFormat, true);
+        xhttp.onloadend = function () {
+            if (xhttp.status === 200) {
+                try {
+                    studioFormatJson = JSON.parse(this.responseText);
+                } catch (err) {
+                    console.error("error in json parse format " + studioFormat);
+                }
+            }
+            resolve();
+        };
+        try {
+            xhttp.send();
+        }
+        catch (err) {
+            console.log('Error getting fieldThresholds.json')
+        }
+    });
+}
+
 $(document).on("ready", function() {
-    var tableType = findGetParameter("tabletype");
+    var tableType = getParameterByName("tabletype");
     if (tableType) {
-        $("#instanceSelected").val(tableType);
+        tableTypeSelect.val(tableType);
     }
-    var instance = findGetParameter("instance");
+    var instance = getParameterByName("instance");
     if (instance) {
         $("#instanceType").val(instance);
     }
-    getSavedConfidence().then(startup);
+    studioMode = getParameterByName('studio');
+    if (studioMode && studioMode !== 'false') studioMode = true;
+    else studioMode = false;
+    studioFormat = getParameterByName('format');
+    if (studioMode && studioFormat) {
+        getStudioFormatData().then(function(err) {
+            if (err) {
+                console.log(err);
+            } else {
+                getSavedConfidence().then(startup);
+            }
+        })
+    } else {
+        getSavedConfidence().then(startup);
+    }
 });

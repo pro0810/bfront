@@ -31,17 +31,12 @@ var app = new express();
 app.use(cookieParser())
 var jsonParser = bodyParser.json({limit: '50mb'});
 var rootPath = 'F:/2018-01-11-betrand'; // for suuha
-var uploadPath = './mounts/share/uploads/'; // for suuha
-var outputPath = './mounts/output/'; // for suuha
-var authUrl = 'http://localhost:3000/login'; //for suuha
-var loginPageUrl = 'http://localhost:3000/#/logins?redirectUrl='; // for suuha
-
 // var rootPath = '/home/suuha'; // for sandbox
-// var uploadPath = '/mounts/share/uploads/'; // for sandbox
-// var outputPath = '/mounts/output/'; // for sandbox
-// var authUrl = 'http://localhost:3000/login'; //for sandbox
-// var loginPageUrl = 'http://localhost:3000/#/logins?redirectUrl='; // for sandbox
-
+var authUrl = 'http://localhost:3000/login';
+var loginPageUrl = 'http://localhost:3000/#/logins?redirectUrl=';
+var uploadPath = '/mounts/share/uploads/';
+var outputPath = '/mounts/output/';
+var formatPath = '/mounts/format/';
 
 const swaggerUi = require('swagger-ui-express');
 const swaggerDocument = require('./swagger.json');
@@ -124,7 +119,22 @@ app.use(function(req, res, next) {
     next();
 });
 
-
+app.get('/review/studio-format/:format', function(req, res) {
+    try {
+        res.setHeader('content-type', 'application/json');
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+        res.status(200);
+        fs.readFile(path.join(formatPath, req.params.format + '.json'), 'utf8', function(err, data) {
+            if (err) return res.status(500).send(err);
+            res.end(data);
+        });
+    } catch (err) {
+        console.log("/format.json: something else went wrong " + err);
+        res.status(500).send("something went wrong\n");
+    }
+});
 
 app.get('/review/js/annotorious/annotator.js', function(req, res) {
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
@@ -343,7 +353,7 @@ app.post('/review/upload',
         upload(req, res, function(err) {
             var instance = req.body.instance;
             var supported = ["SEPA-mandate","Home-invoice","Health-invoice","Contract-mgt","Health-splitter"];
-            if(instance == undefined || supported.indexOf(instance) == -1)
+            if(instance === undefined || supported.indexOf(instance) === -1)
             {
                 res.end("Please specify which instance of the API you want to use (SEPA-mandate, Contract-mgt, Home-invoice, Health-invoice)\n");
                 return
@@ -408,6 +418,7 @@ app.get('/review/output/:param/input.json', function(req, res) {
         res.status(200);
         fs.readFile(outputPath + req.params.param + '/input.json', 'utf8', function(err, data) {
             if (err) {
+
                 res.end('{"ready": false}');
                 return;
             }
@@ -441,7 +452,7 @@ app.get('/review/save/:param1', function(req, res) {
 
 app.post('/review/save/:param1', jsonParser, function(req, res) {
     try {
-        fs.writeFile(uploadPath + req.params.param1 + '/save.json', JSON.stringify(req.body), 'utf-8',
+        fs.writeFile(uploadPath + req.params.param1 + '/save.json', JSON.stringify(req.body.saveData), 'utf-8',
             function(err) {
                 if (err) {
                     console.log("/POST SAVE: something went wrong " + err);
@@ -449,8 +460,19 @@ app.post('/review/save/:param1', jsonParser, function(req, res) {
                     res.end("something went wrong (005)\n");
                     return;
                 }
-                console.log('POST SAVE: ' + req.params.param1);
-                res.sendStatus(200);
+                if (req.body.formatData) {
+                    fs.writeFile(formatPath + req.body.formatData.name + '.json', JSON.stringify(req.body.formatData.data), 'utf-8',
+                        function(err) {
+                            if (err) {
+                                console.log("/POST Format: something went wrong " + err);
+                                res.status(422);
+                                res.end("something went wrong (005)\n");
+                                return;
+                            }
+                            console.log('POST SAVE: ' + req.params.param1);
+                            res.sendStatus(200);
+                        });
+                }
             });
     } catch (err) {
         console.log("/POST SAVE: something else went wrong " + err);
