@@ -1,0 +1,40 @@
+{
+  "name": "contract-fit-api-for-AG",
+  "version": "1.0.0",
+  "description": "This describes the API for routing and data entry ",
+  "main": "webhook.js",
+  "scripts": {
+    "prestart": "npm install",
+    "start": "node webhook.js"
+  },
+  "keywords": [
+    "swagger"
+  ],
+  "license": "Unlicense",
+  "private": true,
+  "dependencies": {
+    "basic-auth": "",
+    "body-parser": "",
+    "child_process": "",
+    "connect": "^3.2.0",
+    "cookie-parser": "^1.4.3",
+    "ejs": "",
+    "express": "",
+    "express-session": "^1.15.6",
+    "fs": "",
+    "html": "",
+    "http": "",
+    "https": "",
+    "js-yaml": "^3.3.0",
+    "kue": "",
+    "log-timestamp": "",
+    "mime-types": "",
+    "mongoose": "^5.0.0",
+    "multer": "",
+    "path": "",
+    "request": "",
+    "rimraf": "",
+    "swagger-tools": "*",
+    "swagger-ui-express": "2.0.5"
+  }
+}

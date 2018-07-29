@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html dir="ltr" style="font-size:100%" lang="en">
+
+<head>
+
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta name="author" content="contract.fit" />
+
+    <title>Contract.fit demonstration portal</title>
+    <link rel="shortcut icon" type="image/png" href="/review/images/favicon.png" />
+
+    <!-- SEO -->
+    <meta name="keywords" content="">
+    <meta name="description" content="">
+
+    <!-- Css -->
+    <link rel="stylesheet"  type="text/css" href="/review/css/bootstrap.css" />
+    <link rel="stylesheet"  type="text/css" href="/review/css/style.css" />
+    <link rel="stylesheet"  type="text/css" href="/review/css/font-icons.css" />
+    <link rel="stylesheet"  type="text/css" href="/review/css/animate.css" />
+    <link rel="stylesheet"  type="text/css" href="/review/css/magnific-popup.css" />
+    <link rel="stylesheet"  type="text/css" href="/review/css/style.min.css" />
+
+    <link rel="stylesheet" type="text/css" href="/review/css/annotator.css">
+    <!-- Javascript -->
+    <script type="text/javascript" src="/review/js/jquery.min.js"></script>
+
+    <!-- Analyse -->
+    <script type="text/javascript">
+        var directory = "<%= directory %>";
+        var server = "<%= server %>";
+        var port = "<%= port %>";
+    </script>
+</head>
+
+<body class="stretched" data-loader-timeout="10" >
+<div id="wrapper" class="clearfix">
+    <header id="header" class="" style="position: static !important;">
+        <div id="header-wrap">
+            <div class="container-fluid clearfix">
+                <div id="primary-menu-trigger"><i class="icon-reorder"></i></div>
+                <div id="logo">
+                    <a href="/review/" data-href="#" class="standard-logo" data-dark-logo="/review/images/logo_AGI"><img style="padding-top:5px;padding-bottom:10px;" src="/review/images/logo_AGI" alt="Logo"></a>
+                    <a href="/review/" data-href="#" class="retina-logo" data-dark-logo="/review/images/logo_AGI"><img style="padding-top:5px;padding-bottom:10px;" src="/review/images/logo_AGI" alt="Logo"></a>
+                </div>
+                <nav id="primary-menu">
+                    <ul>
+                        <li><a href="#"><div><H3>Machine Learning Data Capture &amp; Routing Portal</H3></div></a> </li>
+                    </ul>
+                </nav>
+            </div>
+        </div>
+        <script type="text/javascript" src="/review/js/annotorious/renderjson.js"></script>
+    </header>
+    <section id="toolbar">
+        <div id="top-bar">
+            <div class="container-fluid clearfix">
+                <div class="col_one_third nobottommargin" style='height: 44px;'>
+                    <div id="top-social">
+                        <ul>
+                            <li onclick='$("#fileSelector").click();'><a href="#" class="si-facebook"><span class="ts-icon"><i class="icon-folder-open-alt"></i></span><span class="ts-text">Open</span></a></li>
+                            <li id="annotator-submit" data-intro="When done, hit this button to submit all pages at once" data-step="9" data-disable-interaction="true"><a href="#" class="si-facebook"><span class="ts-icon"><i class="icon-line-upload"></i></span><span class="ts-text">Submit</span></a></li>
+                            <!--<li id="annotator-walkthrough"><a href="#" class="si-facebook"><span class="ts-icon"><i class="icon-info"></i></span><span class="ts-text">Demo</span></a></li>-->
+                            <!--<li id="annotator-add-new"><a href="#" class="si-facebook"><span class="ts-icon"><i class="icon-line-marquee-plus"></i></span><span class="ts-text">Add</span></a></li>-->
+                            <li id="annotator-save"><a href="#" class="si-facebook"><span class="ts-icon"><i class="icon-save"></i></span><span class="ts-text">Save</span></a></li>
+                            <li id="fix-button"><a href="#" class="si-facebook"><span class="ts-icon"><i class="icon-line2-pencil"></i></span><span class="ts-text">Fix</span></a></li>
+                            <li id="annotator-toggle-right"><a href="#" class="si-facebook"><span class="ts-icon"><i class="icon-eye-close"></i></span><span class="ts-text">Toggle</span></a></li>
+                            <li id="annotator-toggle-original"><a href="#" class="si-facebook"><span class="ts-icon"><i class="icon-undo"></i></span><span class="ts-text">Original</span></a></li>
+                            <li id="annotator-cancel"><a href="#" class="si-facebook"><span class="ts-icon"><i class="icon-line2-logout"></i></span><span class="ts-text">Cancel</span></a></li>
+                            <!--<li id="toggle-json"><a href="#" class="si-twitter"><span class="ts-icon"><i class="icon-code"></i></span><span class="ts-text">JSON</span></a></li>-->
+
+                        </ul>
+                    </div>
+                </div>
+                <div class="col_one_third nobottommargin center">
+                    <div id="image-navigator-buttons">
+                        <ul>
+                            <li><button style="padding: 0;"><span class="ts-text">&lt;&lt;</span></button></li>
+                            <li><button><span class="ts-text">&lt; Vorige</span></button></li>
+                            <li><span class="ts-text" id="page-tracker">- / -</span></li>
+                            <li><button><span class="ts-text">Volgende &gt;</span></button></li>
+                            <li><button style="padding: 0;"><span class="ts-text">&gt;&gt;</span></button></li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="col_one_third col_last fright col_last nobottommargin" style="text-align:right">
+                    <select class="selectpicker" id="instanceSelected">
+                        <option data-content="<span class='label label-primary'>Metadata</span>" value="Metadata"></option>
+                        <!--<option data-content="<span class='label label-success'>Contract</span> management" value="Contract-mgt">Contract Management</option>-->
+                        <!--<option data-content="<span class='label label-warning'>Home</span> invoice" value="Home-invoice">Home repair</option>-->
+                        <!--<option data-content="<span class='label label-default'>Health</span> splitter" value="Health-splitter">Health splitter</option>-->
+                        <!--<option data-content="<span class='label label-danger'>Health</span> invoice" value="Health-invoice">Health invoice</option>-->
+                        <!--<option data-content="<span class='label label-info'>Placement</span> mandate" value="Placement-mandate">Placement mandate</option>-->
+                        <!--<option data-content="<span class='label success'>Line items</span>" value="invoice_line_item"></option>-->
+                    </select>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section>
+        <div class="modal fade" id="myModal" tabindex="1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+            <div class="modal-dialog" style="top:150px">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+                        <!--<h4 id="loader" style="margin-bottom:0px"></h4>-->
+                        <h4 class="modal-title" id="modal-request-title" style="text-align: center"></h4>
+                    </div>
+                    <div class="modal-body">
+                        <h3 id="modal-request-text"></h3>
+                        <button id="modal-request-button" class="btn btn-danger" tabindex="0" onclick='$("#annotator-submit").click();'>Submit</button>
+                        <button id="modal-request-next" class="btn btn-success" tabindex="0" onclick='nextUUID();'>Open next Document</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="main-view">
+        <div class="center container-fluid clearfix nomargin">
+            <div class="content" id="draggable-containment">
+                <!--<div style="position: relative;">-->
+                <!--<div id="choicebox" class="draggable ui-widget-content" data-intro="For new lines, you can select the type of line. <br><br> Hover over the type of line to see which fields are included in that type of line. <br><br> Once you have selected the line type, you will go into edit mode. <br><br> In edit mode, you can use the text to populate the cells by clicking on the text. <br><br> HINT: if you need to concatenate text in a single cell, use SHIFT-click" data-step="5"></div>-->
+                <!--<div id="barbox" class="draggable ui-widget-content" data-intro="When editing the row information, you will see the different fields of the row in a bar such as this one. <br><br> You can cycle through them (TAB and Shift-TAB) and edit them as required. <br><br>Delete a row by using the trash bin icon on the right." data-step="3" data-disable-interaction="false"></div>-->
+                <!--</div>-->
+                <div class="col-md-6" style="padding-left: 0; padding-right: 0;">
+                    <div style="position: relative; z-index: 1000">
+                        <div id="choicebox" tabindex="0" class="draggable ui-widget-content" data-intro="For new lines, you can select the type of line. <br><br> Hover over the type of line to see which fields are included in that type of line. <br><br> Once you have selected the line type, you will go into edit mode. <br><br> In edit mode, you can use the text to populate the cells by clicking on the text. <br><br> HINT: if you need to concatenate text in a single cell, use SHIFT-click" data-step="5"></div>
+                        <div id="barbox" tabindex="0" class="draggable ui-widget-content" data-intro="When editing the row information, you will see the different fields of the row in a bar such as this one. <br><br> You can cycle through them (TAB and Shift-TAB) and edit them as required. <br><br>Delete a row by using the trash bin icon on the right." data-step="3" data-disable-interaction="false"></div>
+                        <div id="settingbox" tabindex="0" class="draggable ui-widget-content">
+                            <div>
+                                <label for="setting_title">setting</label>
+                            </div>
+                            <div>
+                                <input type="radio" name="setting_choice" id="setting_annotation" checked>
+                                <label for="setting_annotation">annotation</label>
+                                <input type="radio" name="setting_choice" id="setting_tag">
+                                <label for="setting_tag">tag</label>
+                            </div>
+                            <div >
+                                <select name="setting_type" id="setting_type">
+
+                                </select>
+                            </div>
+                            <div style="margin-left: 10px;">
+                                <input type="checkbox" name="setting_mandatory" id="setting_mandatory">
+                                <label for="setting_mandatory">mandatory</label>
+                                <input type="checkbox" name="setting_multiple" id="setting_multiple">
+                                <label for="setting_multiple">multiple</label>
+                            </div>
+                            <div>
+                                <a class="button button-mini button-circle" id="setting-check" style="width: 50px;">
+                                    <i class="icon-checkmark"></i>
+                                </a>
+                                <a class="button button-mini button-circle" id="setting-cancel" style="width: 50px;">
+                                    <i class="icon-remove"></i>
+                                </a>
+                            </div>
+                        </div>
+                        <div id="tableflowbox" tabindex="0" class="draggable ui-widget-content">
+                        </div>
+                    </div>
+                    <div class="content-inner content-img">
+                        <div id="images">
+                            <br />
+                            <p>Please select a pdf file by clicking on the folder icon (top left)</p>
+                        </div>
+                        <div id="json-data">
+                        </div>
+                        <form method="post" enctype="multipart/form-data" action="/review/">
+                            <input type="file" name="file" style="display:none;" id="fileSelector"/>
+                            <input type='hidden' name="instance" id="instanceType" value="SEPA-mandate"/>
+                            <input type="submit" style="display: none;"/>
+                        </form>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="content-inner content-tbl">
+                        <table class="table annotation-table" >
+                            <thead>
+                            <tr id="entity-header">
+                                <th>Label</th>
+                                <th>Content</th>
+                                <th>Confidence</th>
+                                <th></th>
+                            </tr>
+                            </thead>
+                            <tbody id='entity-table'></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bluebird/3.3.5/bluebird.min.js"></script>
+<script type="text/javascript" src="/review/js/plugins.js"></script>
+<script type="text/javascript" src="/review/js/functions.js"></script>
+<script type="text/javascript" src="/review/js/external.js"></script>
+<script type="text/javascript" src="/review/js/annotorious/annotator.js"></script>
+<script type="text/javascript" src="/review/js/bootstrap-tagsinput.min.js"></script>
+
+<!-- Bootstrap Select Plugin -->
+<script type="text/javascript" src="/review/js/bs-select.js"></script>
+
+<link rel="stylesheet" href="/review/css/bs-select.css" type="text/css" />
+<link rel="stylesheet" href="/review/css/bootstrap-tagsinput.css" type="text/css"/>
+</body>
+</html>
