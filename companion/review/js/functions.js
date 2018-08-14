@@ -3514,6 +3514,8 @@ var SEMICOLON = SEMICOLON || {};
 
 	};
 
+    // Display areas coordinates in a div
+
 	SEMICOLON.documentOnReady = {
 
 		init: function(){
@@ -3523,6 +3525,21 @@ var SEMICOLON = SEMICOLON || {};
 			if( $portfolio.length > 0 ) { SEMICOLON.portfolio.init(); }
 			SEMICOLON.widget.init();
 			SEMICOLON.documentOnReady.windowscroll();
+
+            $('img#cropImage').selectAreas({
+                minSize: [10, 10],
+                width: 500,
+                areas: []
+            });
+            $('#btnViewRel').click(function () {
+                var areas = $('img#cropImage').selectAreas('relativeAreas');
+                sendCropData(areas);
+            });
+            $('#btnReset').click(function () {
+                if ($('#btnReset')[0].innerText == "Start")
+                    $('#btnReset')[0].innerText = "Reset";
+                $('img#cropImage').selectAreas('reset');
+            });
 		},
 
 		windowscroll: function(){

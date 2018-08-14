@@ -20,10 +20,12 @@
     <link rel="stylesheet"  type="text/css" href="/review/css/animate.css" />
     <link rel="stylesheet"  type="text/css" href="/review/css/magnific-popup.css" />
     <link rel="stylesheet"  type="text/css" href="/review/css/style.min.css" />
+    <link rel="stylesheet"  type="text/css" href="/review/css/jquery.selectareas.css" />
 
     <link rel="stylesheet" type="text/css" href="/review/css/annotator.css">
     <!-- Javascript -->
     <script type="text/javascript" src="/review/js/jquery.min.js"></script>
+    <script type="text/javascript" src="/review/js/jquery.selectareas.js"></script>
 
     <!-- Analyse -->
     <script type="text/javascript">
@@ -66,6 +68,7 @@
                             <li id="fix-button"><a href="#" class="si-facebook"><span class="ts-icon"><i class="icon-line2-pencil"></i></span><span class="ts-text">Fix</span></a></li>
                             <li id="annotator-toggle-right"><a href="#" class="si-facebook"><span class="ts-icon"><i class="icon-eye-close"></i></span><span class="ts-text">Toggle</span></a></li>
                             <li id="annotator-toggle-original"><a href="#" class="si-facebook"><span class="ts-icon"><i class="icon-undo"></i></span><span class="ts-text">Original</span></a></li>
+                            <li id="annotator-crop"><a href="#" class="si-facebook"><span class="ts-icon"><i class="icon-crop2"></i></span><span class="ts-text">Crop</span></a></li>
                             <li id="annotator-cancel"><a href="#" class="si-facebook"><span class="ts-icon"><i class="icon-line2-logout"></i></span><span class="ts-text">Cancel</span></a></li>
                             <!--<li id="toggle-json"><a href="#" class="si-twitter"><span class="ts-icon"><i class="icon-code"></i></span><span class="ts-text">JSON</span></a></li>-->
 
@@ -111,6 +114,29 @@
                         <h3 id="modal-request-text"></h3>
                         <button id="modal-request-button" class="btn btn-danger" tabindex="0" onclick='$("#annotator-submit").click();'>Submit</button>
                         <button id="modal-request-next" class="btn btn-success" tabindex="0" onclick='nextUUID();'>Open next Document</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal fade" id="myCropModal" tabindex="1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+            <div class="modal-dialog" style="top:50px">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+                        <h4 class="modal-title" id="modal-request-title" style="text-align: center">Document Crop</h4>
+                    </div>
+                    <div class="modal-body">
+
+                        <div id="wrapper" style="opacity: 1 !important">
+                            <div class="image-decorator">
+                                <img alt="Image principale" id="cropImage" src=""/>
+                            </div>
+                            <div style="padding: 20px 0 0;">
+                                <button id="btnViewRel" class="actionOn">Crop</button>
+                                <button id="btnReset" class="actionOn">Start</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

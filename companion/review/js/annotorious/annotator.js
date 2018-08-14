@@ -425,6 +425,26 @@ function cancelDoc() {
     }
 }
 
+function sendCropData (areas) {
+    var xhr = new XMLHttpRequest();
+    var url = location.protocol + "//" + server + ":" + port + "/review/crop/" + directory + "/" + activeImage;
+    xhr.open("POST", url, true);
+    xhr.setRequestHeader("Content-type", "application/json");
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState === 4) {
+            if (xhr.status === 200) {
+                $("#myCropModal").modal("hide");
+                showModalPopup("Processing", "Now croping the image... please wait a moment.");
+                window.location.replace("http://localhost:5023/review/");
+            } else {
+                $("#myCropModal").modal("hide");
+                showModalPopup("Failed!", "Your progress could not be saved.")
+            }
+        }
+    };
+    xhr.send(JSON.stringify(areas));
+};
+
 $("#annotator-save").click(function() {
     xhr = checkLock();
     xhr.onload = function() {
@@ -488,6 +508,20 @@ function toggle_table() {
 $("#annotator-toggle-right").click(toggle_table);
 $("#annotator-toggle-original").click(toggle_original);
 $("#annotator-cancel").click(cancelDoc);
+$("#annotator-crop").click(cropDoc);
+
+function cropDoc() {
+    try {
+        showCropModal($(".active-image > img")[0].src);
+    } catch (e) {
+        alert("Please select image to crop");
+    }
+}
+
+function showCropModal(imgURL) {
+    $("#cropImage").attr("src",imgURL);
+    $("#myCropModal").modal("show");
+}
 
 function toggle_original(changeValue) {
     console.log("toggle_original");
@@ -3618,10 +3652,11 @@ function getLastValueForPageRange(val) {
 
 
 function loadThumbnails() {
+    if (typeof (json["pictures"]) == 'object') picSize = Object.size(json["pictures"]); else picSize = json["pictures"].length;
     var imgThumb = document.createElement("div");
     imgThumb.classList.add("active-image");
     imgThumb.classList.add("flex-container");
-    for (var pictureIndex in json["pictures"]) {
+    for (var pictureIndex = 0; pictureIndex < picSize; pictureIndex++) {
         var imgContainer = document.createElement("div");
         for (var tagIndex in json["tags"]) {
             if (parseInt(pictureIndex) + 1 == json["tags"][tagIndex]["label"] && json["tags"][tagIndex]["confidence"] < get_error_confidence(json["tags"][tagIndex]["label"])) {
@@ -3629,7 +3664,8 @@ function loadThumbnails() {
             }
         }
         var img = document.createElement("img");
-        img.setAttribute("src", json["pictures"][pictureIndex]);
+        if (typeof (json["pictures"]) == 'object') picItem = json["pictures"][Object.keys(json["pictures"]).sort()[pictureIndex]]; else picItem = json["pictures"][pictureIndex];
+        img.setAttribute("src", picItem);
         img.setAttribute("alt", "Error");
         img.setAttribute("draggable", "false");
         // img.style.border = "3px solid rgba(92, 184, 92, 0.7)";
@@ -3680,7 +3716,7 @@ function loadThumbnails() {
 
 function generate_thumbnail_table() {
     generateTableHeader();
-    for (var pictureIndex in json["pictures"]) {
+    for (var pictureIndex = 0; pictureIndex < picSize; pictureIndex++) {
         for (var tagIndex in json["tags"]) {
             if (parseInt(pictureIndex) + 1 != json["tags"][tagIndex]["label"]) {
                 continue;
@@ -3963,7 +3999,8 @@ $("#annotator-walkthrough").on("click", function() {
 
 function makeAnnotation(imageIndex, annotation, type) {
     var subjson = finalReverses[imageIndex];
-    var src = json["pictures"][imageIndex];
+    if (typeof (json["pictures"]) == 'object') picItem = json["pictures"][Object.keys(json["pictures"]).sort()[imageIndex]]; else picItem = json["pictures"][imageIndex];
+    var src = picItem;
     var lines = subjson["lines"];
     var realwidth = subjson["width"];
     var realheight = subjson["height"];
@@ -4133,7 +4170,8 @@ function getUnrecognizedAnnotation(imageIndex) {
     if (Object.keys(pointers[imageIndex]["annotations"]).length === 0 && Object.keys(pointers[imageIndex]["rows"]).length === 0) {
         return {};
     }
-    var src = json["pictures"][imageIndex];
+    if (typeof (json["pictures"]) == 'object') picItem = json["pictures"][Object.keys(json["pictures"]).sort()[imageIndex]]; else picItem = json["pictures"][imageIndex];
+    var src = picItem;
     var linesToBoxes = {};
     var realheight = finalReverses[imageIndex]["height"];
     var realwidth = finalReverses[imageIndex]["width"];
@@ -4209,7 +4247,8 @@ function getUnrecognizedAnnotation(imageIndex) {
 
 function setupImage(imageIndex) {
     var subjson = finalReverses[imageIndex];
-    var src = json["pictures"][imageIndex];
+    if (typeof (json["pictures"]) == 'object') picItem = json["pictures"][Object.keys(json["pictures"]).sort()[imageIndex]]; else picItem = json["pictures"][imageIndex];
+    var src = picItem;
     var annotations = [];
     var realwidth = subjson["width"];
     var realheight = subjson["height"];
@@ -4399,7 +4438,8 @@ function loadImageJson(imageIndex) {
         var subjson = JSON.parse(this.responseText);
         finalReverses[imageIndex] = subjson;
         setupImage(imageIndex);
-        if (imageIndex === json["pictures"].length - 1) {
+        if (typeof (json["pictures"]) == 'object') picSize = Object.size(json["pictures"]); else picSize = json["pictures"].length;
+        if (imageIndex === picSize - 1) {
             afterFirstLoad();
         } else {
             // generateTable();
@@ -4449,6 +4489,14 @@ function set_table_types(){
     }
 }
 
+Object.size = function(obj) {
+    var size = 0, key;
+    for (key in obj) {
+        if (obj.hasOwnProperty(key)) size++;
+    }
+    return size;
+};
+
 function loadInputJson() {
     return function() {
         if (this.readyState !== 4 || this.status !== 200) {
@@ -4467,15 +4515,16 @@ function loadInputJson() {
             return;
         }
         $("#myModal").modal("hide");
+        if (typeof (json["pictures"]) == 'object') picSize = Object.size(json["pictures"]); else picSize = json["pictures"].length;
         if (!json.offset)
-            $("#page-tracker").text((1 + activeImage) + " / " + json["pictures"].length);
+            $("#page-tracker").text((1 + activeImage) + " / " + picSize);
         else
-            $("#page-tracker").text((activeImage) + " / " + (json["pictures"].length - 1));
+            $("#page-tracker").text((activeImage) + " / " + (picSize - 1));
         if (json["show_unrecognized_text"] !== undefined) {
             show_unrecognized_text = json["show_unrecognized_text"];
         }
         if (Array.isArray(json["show_table"])) {
-            for (var i in json["pictures"]) {
+            for (var i = 0; i < picSize; i++) {
                 st_flag_arr.push(json["show_table"][i]);
             }
         } else {
@@ -4489,9 +4538,10 @@ function loadInputJson() {
         changeRightPanel(json["size_of_right"]);
         images.empty();
         var first = true;
-        for (var pictureIndex in json["pictures"]) {
+        for (var pictureIndex = 0; pictureIndex < picSize; pictureIndex++) {
             var img = document.createElement("img");
-            img.setAttribute("src", json["pictures"][pictureIndex]);
+            if (typeof (json["pictures"]) == 'object') picItem = json["pictures"][Object.keys(json["pictures"]).sort()[pictureIndex]]; else picItem = json["pictures"][pictureIndex];
+            img.setAttribute("src", picItem);
             img.setAttribute("alt", "Error");
             img.setAttribute("draggable", "false");
             var imgwrapper = document.createElement("div");
@@ -4517,7 +4567,7 @@ function loadInputJson() {
             }
             if (!this.responseText || this.responseText === "[]") {
                 pointers = [];
-                for (var i = 0; i < json["pictures"].length; i++) {
+                for (var i = 0; i < picSize; i++) {
                     pointers.push({});
                 }
             } else {
@@ -4537,8 +4587,9 @@ function loadInputJson() {
             }
 
             ignoreLines.length = pointers.length;
-            for (var pictureIndex in json["pictures"]) {
-                var reverseFile = json["pictures"][pictureIndex] + ".reverse.json";
+            for (var pictureIndex = 0; pictureIndex < picSize; pictureIndex++) {
+                if (typeof (json["pictures"]) == 'object') picItem = json["pictures"][Object.keys(json["pictures"]).sort()[pictureIndex]]; else picItem = json["pictures"][pictureIndex];
+                var reverseFile = picItem + ".reverse.json";
                 var xhttp;
                 if (window.XMLHttpRequest) {
                     // code for modern browsers
