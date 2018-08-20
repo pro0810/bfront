@@ -31,16 +31,16 @@ var app = new express();
 app.use(cookieParser());
 var jsonParser = bodyParser.json({limit: '50mb'});
 // var rootPath = 'F:/2018-01-11-betrand'; // for suuha
-// var rootPath = 'E:/project/7.26'; // for blue
-var rootPath = '/home/suuha'; // for sandbox
+var rootPath = 'E:/project/7.26'; // for blue
+// var rootPath = '/home/suuha'; // for sandbox
 var authUrl = 'http://localhost:3000/login';
 var loginPageUrl = 'http://localhost:3000/#/logins?redirectUrl=';
-var uploadPath = '/mounts/share/uploads/';
-var outputPath = '/mounts/output/';
-var formatPath = '/mounts/format/';
-// var uploadPath = 'E://mounts/share/uploads/';
-// var outputPath = 'E://mounts/output/';
-// var formatPath = 'E://mounts/format/';
+// var uploadPath = '/mounts/share/uploads/';
+// var outputPath = '/mounts/output/';
+// var formatPath = '/mounts/format/';
+var uploadPath = 'E://mounts/share/uploads/';
+var outputPath = 'E://mounts/output/';
+var formatPath = 'E://mounts/format/';
 
 const swaggerUi = require('swagger-ui-express');
 const swaggerDocument = require('./swagger.json');

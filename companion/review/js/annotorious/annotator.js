@@ -332,7 +332,7 @@ $("#annotator-submit").on("click", function() {
                                 var event = new CustomEvent('post_submit', {detail: {response: submitResponse}, cancelable: true});
                                 var cancelled = !document.dispatchEvent(event);
                                 if (!cancelled) {
-                                    var url = location.protocol + "//" + dash_server + ":" + dash_port + "/releaseLock/" + directory;
+                                    var url = location.protocol + "//" + dash_server + ":" + dash_port + "/releaseAllLock/" + directory;
                                     var xhr = createCORSRequest("POST", url);
                                     if (!xhr) {
                                         throw new Error('CORS not supported');
@@ -435,7 +435,7 @@ function sendCropData (areas) {
             if (xhr.status === 200) {
                 $("#myCropModal").modal("hide");
                 showModalPopup("Processing", "Now croping the image... please wait a moment.");
-                window.location.replace("http://localhost:5023/review/");
+                window.location.replace(location.protocol + "//" + server + ":" + port + "/review/");
             } else {
                 $("#myCropModal").modal("hide");
                 showModalPopup("Failed!", "Your progress could not be saved.")
@@ -509,7 +509,35 @@ $("#annotator-toggle-right").click(toggle_table);
 $("#annotator-toggle-original").click(toggle_original);
 $("#annotator-cancel").click(cancelDoc);
 $("#annotator-crop").click(cropDoc);
+$("#annotator-escalate").click(escalateDoc);
 
+function escalateDoc() {
+    if (directory === "annotator"){
+        alert("Please select Document to escalate");
+        return
+    } else {
+        var url = location.protocol + "//" + dash_server + ":" + dash_port + "/escalate/" + directory;
+        var xhr = createCORSRequest("POST", url);
+        if (!xhr) {
+            throw new Error('CORS not supported');
+        }
+        xhr.onload = function() {
+            if (xhr.readyState === 4) {
+                if (xhr.status === 200) {
+                    window.location.href = location.protocol + "//" + server + ":" + port + "/review/" + xhr.responseText;
+                } else {
+                    showModalPopup("Your request could not be processed", xhr.responseText);
+                }
+            }
+        };
+        xhr.onerror = function() {
+            showModalPopup("Your request could not be processed", xhr.responseText);
+            return;
+        };
+        xhr.send();
+    }
+
+}
 function cropDoc() {
     try {
         showCropModal($(".active-image > img")[0].src);
