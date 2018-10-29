@@ -27,6 +27,8 @@
     "https": "",
     "js-yaml": "^3.3.0",
     "kue": "",
+    "jimp": "",
+    "image-size": "",
     "log-timestamp": "",
     "mime-types": "",
     "mongoose": "^5.0.0",

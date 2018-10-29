@@ -17,6 +17,9 @@ var mime = require('mime-types');
 var auth = require('basic-auth');
 var request = require('request');
 
+var Jimp = require('jimp');
+var sizeOf = require('image-size');
+
 var rimraf = require('rimraf');
 var ejs = require('ejs');
 
@@ -41,6 +44,8 @@ var loginPageUrl = 'http://localhost:3000/#/logins?redirectUrl=';
 var uploadPath = 'E://mounts/share/uploads/';
 var outputPath = 'E://mounts/output/';
 var formatPath = 'E://mounts/format/';
+
+var choiceCharLists = ['a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z'];
 
 const swaggerUi = require('swagger-ui-express');
 const swaggerDocument = require('./swagger.json');
@@ -558,6 +563,60 @@ app.post('/review/put', jsonParser, function(req, res) {
     }
 });
 
+choiceCharIndex = 0;
+croppedJson = {};
+
+app.post('/review/crop/:param1/:param2', jsonParser, function(req, res) {
+    // req.params.param1 : directory
+    // req.params.param2 : image index
+    inputJsonURL = outputPath + req.params.param1 + '/input.json';
+    console.log(inputJsonURL);
+    fs.readFile(inputJsonURL, 'utf8', function(err, data) {
+        if (err) {
+            res.status(500);
+            res.end("crop error");
+        }
+        jsonData = JSON.parse(data);
+        imgURL = jsonData["pictures"][Object.keys(jsonData["pictures"]).sort()[req.params.param2]];
+        imgKEY = Object.keys(jsonData["pictures"]).sort()[req.params.param2];
+        imgURL = uploadPath + imgURL.replace("/review/share/uploads/","");
+        var dimensions = sizeOf(imgURL);
+        rate = dimensions.width / 568;
+        choiceCharIndex = 0;
+        croppedJson = jsonData;
+        cropImages(imgURL, imgKEY, rate, req.body, inputJsonURL, res);
+    });
+});
+
+function cropImages(imgURL, imgKEY, rate, data, inputJsonURL, res) {
+    cropitem = data.pop();
+    if (cropitem == undefined) {
+        jsonData = JSON.stringify(croppedJson);
+        fs.writeFile(inputJsonURL, jsonData, 'utf8', function (err) {
+            choiceCharIndex = 0;
+            console.log(croppedJson["pictures"]);
+            if (err)
+                res.status(500).end();
+            else
+                res.status(200).end();
+        });
+        return;
+    }
+    console.log("croping..." + cropitem.id);
+    Jimp.read(imgURL, (err, imgData) => {
+        if (err) return err;
+        ext = /[^.]+$/.exec(imgURL)[0];
+        saveURL = imgURL.split('.').slice(0, -1).join('.') + choiceCharLists[choiceCharIndex] + "." + ext;
+        imgData
+            .crop( cropitem.x * rate, cropitem.y * rate, cropitem.width * rate, cropitem.height * rate )
+            .write(saveURL);
+        croppedJson["pictures"][imgKEY + choiceCharLists[choiceCharIndex]] = saveURL;
+        fs.writeFile(saveURL + ".reverse.json", '');
+        choiceCharIndex++;
+        cropImages(imgURL, imgKEY, rate, data, inputJsonURL, res);
+    });
+}
+
 app.post('/review/ready', jsonParser, function(req, res) {
     try {
         console.log("/READY: called");
@@ -614,5 +673,3 @@ function shutdown() {
 for (var signal of ['SIGUSR1', 'SIGTERM', 'SIGINT', 'SIGPIPE', 'SIGHUP', 'SIGBREAK']) {
     process.on(signal, shutdown);
 }
-
-
