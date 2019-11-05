@@ -29,7 +29,7 @@
     "kue": "",
     "log-timestamp": "",
     "mime-types": "",
-    "mongoose": "^5.0.0",
+    "mongoose": "^5.7.5",
     "multer": "",
     "path": "",
     "request": "",
